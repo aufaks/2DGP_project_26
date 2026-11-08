@@ -13,10 +13,10 @@ def remove_object(o):
             return
 
 # 게임 로직
-def update():
+def update(dt=1 / 60):
     for layer in world:
         for o in layer:
-            o.update()
+            o.update(dt)
 
 # 게임 렌더링
 def render():

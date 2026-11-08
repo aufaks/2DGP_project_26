@@ -1,0 +1,33 @@
+{
+  "columns": 4,
+  "image": "tileset.png",
+  "imageheight": 32,
+  "imagewidth": 128,
+  "margin": 0,
+  "name": "REPLAY_StarterTiles",
+  "spacing": 0,
+  "tilecount": 4,
+  "tiledversion": "1.11.0",
+  "tileheight": 32,
+  "tilewidth": 32,
+  "type": "tileset",
+  "version": "1.10",
+  "tiles": [
+    {
+      "id": 0,
+      "type": "Grass"
+    },
+    {
+      "id": 1,
+      "type": "Dirt"
+    },
+    {
+      "id": 2,
+      "type": "Stone"
+    },
+    {
+      "id": 3,
+      "type": "Sky"
+    }
+  ]
+}

@@ -1,5 +1,4 @@
 import os
-import time
 
 from pico2d import *
 
@@ -24,7 +23,7 @@ class MainCharacter:
     COLLIDER_WIDTH = 36.0
     COLLIDER_HEIGHT = 60.0
 
-    def __init__(self, x=400.0, y=50.0, ground_y=50.0):
+    def __init__(self, x=400.0, y=50.0, ground_y=50.0, collision_map=None):
         sprite_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             'sprite',
@@ -35,16 +34,24 @@ class MainCharacter:
         self.x = float(x)
         self.y = float(y)
         self.ground_y = float(ground_y)
+        self.collision_map = collision_map
         self.velocity_y = 0.0
-        self.grounded = self.y <= self.ground_y
-        if self.grounded:
+        self.grounded = (
+            collision_map.is_supported(
+                self.x,
+                self.y,
+                self.COLLIDER_WIDTH,
+            )
+            if collision_map is not None
+            else self.y <= self.ground_y
+        )
+        if self.grounded and collision_map is None:
             self.y = self.ground_y
 
         self.facing_left = False
         self.pressed_keys = set()
         self.state = 'IDLE' if self.grounded else 'FALL'
         self.animation_time = 0.0
-        self.last_update_time = time.perf_counter()
 
     def handle_event(self, event):
         if event.type == SDL_KEYDOWN:
@@ -56,11 +63,7 @@ class MainCharacter:
         elif event.type == SDL_KEYUP:
             self.pressed_keys.discard(event.key)
 
-    def update(self, dt=None):
-        now = time.perf_counter()
-        if dt is None:
-            dt = now - self.last_update_time
-        self.last_update_time = now
+    def update(self, dt=1 / 60):
         dt = max(0.0, min(float(dt), self.MAX_DELTA_TIME))
 
         move_x = int(
@@ -68,14 +71,31 @@ class MainCharacter:
         ) - int(
             SDLK_LEFT in self.pressed_keys or SDLK_a in self.pressed_keys
         )
-        self.x += move_x * self.MOVE_SPEED * dt
+        was_grounded = self.grounded
+        if self.collision_map is None:
+            self.x += move_x * self.MOVE_SPEED * dt
         if move_x:
             self.facing_left = move_x < 0
 
-        was_grounded = self.grounded
+        movement_y = 0.0
         if not self.grounded:
             self.velocity_y -= self.GRAVITY * dt
-            self.y += self.velocity_y * dt
+            movement_y = self.velocity_y * dt
+
+        if self.collision_map is not None:
+            self.x, self.y, self.grounded, hit_ceiling = \
+                self.collision_map.move_actor(
+                    self.x,
+                    self.y,
+                    self.COLLIDER_WIDTH,
+                    self.COLLIDER_HEIGHT,
+                    move_x * self.MOVE_SPEED * dt,
+                    movement_y,
+                )
+            if self.grounded or hit_ceiling:
+                self.velocity_y = 0.0
+        elif not self.grounded:
+            self.y += movement_y
             if self.y <= self.ground_y:
                 self.y = self.ground_y
                 self.velocity_y = 0.0
