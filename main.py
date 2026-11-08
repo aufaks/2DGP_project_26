@@ -1,6 +1,11 @@
 from pico2d import *
 import game_world
 
+import main_character
+
+player = None
+
+
 def handle_events():
     global running
 
@@ -11,12 +16,16 @@ def handle_events():
         elif event.type == SDL_KEYDOWN and event.key == SDLK_ESCAPE:
             running = False
         else:
-            pass
+            if player is not None:
+                player.handle_event(event)
 
 
 
 def reset_world():
-    pass
+    global player
+
+    player = main_character.MainCharacter()
+    game_world.add_object(player, 3)
 
 
 def update_world():
