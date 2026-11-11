@@ -9,16 +9,13 @@ class MainCharacter:
     GRAVITY = 1800.0
     MAX_DELTA_TIME = 0.1
 
-    FRAME_WIDTH = 155
-    FRAME_HEIGHT = 132
-    FRAME_LEFT = 178
-    FRAME_ROWS = {
-        'IDLE': (0, 6, 8.0),
-        'RUN': (136, 8, 12.0),
-        'JUMP': (266, 3, 10.0),
-        'FALL': (400, 2, 8.0),
-        'LAND': (532, 3, 12.0),
-    }
+    FRAME_WIDTH = 254
+    FRAME_HEIGHT = 254
+    FRAME_COUNT = 8
+    FRAMES_PER_SECOND = 8.0
+    DRAW_SIZE = 96.0
+    FRAME_FOOT_OFFSET = 24
+    LAND_DURATION = 0.25
 
     COLLIDER_WIDTH = 36.0
     COLLIDER_HEIGHT = 60.0
@@ -27,7 +24,7 @@ class MainCharacter:
         sprite_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             'sprite',
-            'MC_common_move.png',
+            'mc_run.png',
         )
         self.image = load_image(sprite_path)
 
@@ -50,6 +47,8 @@ class MainCharacter:
 
         self.facing_left = False
         self.pressed_keys = set()
+        self.is_moving = False
+        self.run_animation_time = 0.0
         self.state = 'IDLE' if self.grounded else 'FALL'
         self.animation_time = 0.0
 
@@ -71,6 +70,12 @@ class MainCharacter:
         ) - int(
             SDLK_LEFT in self.pressed_keys or SDLK_a in self.pressed_keys
         )
+        self.is_moving = bool(move_x)
+        if self.is_moving:
+            self.run_animation_time += dt
+        else:
+            self.run_animation_time = 0.0
+
         was_grounded = self.grounded
         if self.collision_map is None:
             self.x += move_x * self.MOVE_SPEED * dt
@@ -106,8 +111,7 @@ class MainCharacter:
         elif not was_grounded:
             self._set_state('LAND')
         elif self.state == 'LAND':
-            _, frame_count, frames_per_second = self.FRAME_ROWS['LAND']
-            if self.animation_time >= frame_count / frames_per_second:
+            if self.animation_time >= self.LAND_DURATION:
                 self._set_state('RUN' if move_x else 'IDLE')
         else:
             self._set_state('RUN' if move_x else 'IDLE')
@@ -115,26 +119,28 @@ class MainCharacter:
         self.animation_time += dt
 
     def draw(self):
-        row_top, frame_count, frames_per_second = self.FRAME_ROWS[self.state]
-        frame_index = int(self.animation_time * frames_per_second)
-        if self.state in ('IDLE', 'RUN', 'FALL'):
-            frame_index %= frame_count
-        else:
-            frame_index = min(frame_index, frame_count - 1)
-
-        source_x = self.FRAME_LEFT + frame_index * self.FRAME_WIDTH
-        source_y = self.image.h - row_top - self.FRAME_HEIGHT
+        frame_index = (
+            int(self.run_animation_time * self.FRAMES_PER_SECOND)
+            % self.FRAME_COUNT
+            if self.is_moving
+            else 0
+        )
+        source_x = frame_index * self.FRAME_WIDTH
+        draw_size = self.DRAW_SIZE
+        foot_offset = (
+            self.FRAME_FOOT_OFFSET * draw_size / self.FRAME_HEIGHT
+        )
         self.image.clip_composite_draw(
             source_x,
-            source_y,
+            0,
             self.FRAME_WIDTH,
             self.FRAME_HEIGHT,
             0,
             'h' if self.facing_left else '',
             self.x,
-            self.y + self.FRAME_HEIGHT / 2,
-            self.FRAME_WIDTH,
-            self.FRAME_HEIGHT,
+            self.y + draw_size / 2 - foot_offset,
+            draw_size,
+            draw_size,
         )
 
     def get_collision_box(self):

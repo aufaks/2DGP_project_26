@@ -2,6 +2,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import main_character
 from main_character import MainCharacter
 from tiled_map import TiledMap
 
@@ -12,6 +13,17 @@ class FakeImage:
 
     def clip_composite_draw(self, *args):
         pass
+
+
+class FakeCharacterImage:
+    w = 254 * 8
+    h = 254
+
+    def __init__(self):
+        self.draw_calls = []
+
+    def clip_composite_draw(self, *args):
+        self.draw_calls.append(args)
 
 
 class TiledMapTests(unittest.TestCase):
@@ -75,6 +87,28 @@ class TiledMapTests(unittest.TestCase):
 
         self.assertTrue(player.grounded)
         self.assertEqual(player.y, 64)
+
+    def test_player_uses_and_animates_the_horizontal_run_sheet(self):
+        image = FakeCharacterImage()
+        with patch('main_character.load_image', return_value=image) as load_image:
+            player = MainCharacter()
+
+        self.assertEqual(Path(load_image.call_args.args[0]).name, 'mc_run.png')
+
+        player.draw()
+        self.assertEqual(image.draw_calls[-1][0], 0)
+
+        player.pressed_keys.add(main_character.SDLK_d)
+        player.update(0.1)
+        player.update(0.03)
+        player.draw()
+
+        source_x, source_y, source_width, source_height = image.draw_calls[-1][:4]
+        self.assertEqual(
+            (source_x, source_y, source_width, source_height),
+            (254, 0, 254, 254),
+        )
+        self.assertEqual(image.draw_calls[-1][-2:], (96.0, 96.0))
 
 
 if __name__ == '__main__':
