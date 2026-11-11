@@ -19,7 +19,10 @@ def update(dt=1 / 60):
             o.update(dt)
 
 # 게임 렌더링
-def render():
-    for layer in world:
+def render(camera=None):
+    for depth, layer in enumerate(world):
         for o in layer:
-            o.draw()
+            if camera is not None and depth < 5:
+                o.draw(camera)
+            else:
+                o.draw()

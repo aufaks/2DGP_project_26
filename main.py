@@ -5,10 +5,12 @@ from pico2d import *
 
 import game_world
 import main_character
+from camera import Camera
 from tiled_map import TiledMap
 
 player = None
 level_map = None
+camera = Camera(800, 576, zoom=0.75)
 
 
 def handle_events():
@@ -48,10 +50,19 @@ def reset_world():
 
 def update_world(dt):
     game_world.update(dt)
+    if player is not None and level_map is not None:
+        camera.follow(
+            player.x,
+            player.y + player.DRAW_SIZE * (
+                0.5 - player.FRAME_FOOT_OFFSET / player.FRAME_HEIGHT
+            ),
+            level_map.pixel_width,
+            level_map.pixel_height,
+        )
 
 def render_world():
     clear_canvas()
-    game_world.render()
+    game_world.render(camera)
     update_canvas()
 
 running = True

@@ -141,7 +141,7 @@ class TiledMap:
     def update(self, dt):
         pass
 
-    def draw(self):
+    def draw(self, camera=None):
         for layer, values in self.tile_layers:
             layer_width = layer['width']
             offset_x = layer.get('offsetx', 0) + layer.get('x', 0) * self.tile_width
@@ -181,6 +181,12 @@ class TiledMap:
                 y = self.pixel_height - (
                     row * self.tile_height + self.tile_height / 2 + offset_y
                 )
+                draw_width = self.tile_width
+                draw_height = self.tile_height
+                if camera is not None:
+                    x, y = camera.world_to_screen(x, y)
+                    draw_width = camera.transform_size(draw_width)
+                    draw_height = camera.transform_size(draw_height)
                 tileset['image_object'].clip_composite_draw(
                     source_x,
                     source_y,
@@ -190,8 +196,8 @@ class TiledMap:
                     flip,
                     x,
                     y,
-                    self.tile_width,
-                    self.tile_height,
+                    draw_width,
+                    draw_height,
                 )
 
     def _find_tileset(self, gid):
@@ -225,10 +231,13 @@ class TiledMap:
                     elif dx < 0 and x - half_width >= right and \
                             next_x - half_width < right:
                         next_x = max(next_x, right + half_width)
-            x = next_x
+            max_x = self.pixel_width - half_width
+            x = self.pixel_width / 2 if max_x < half_width else \
+                min(max(next_x, half_width), max_x)
 
         landed = False
         hit_ceiling = False
+        hit_bottom = False
         if dy:
             next_y = y + dy
             for left, bottom, right, top in self.collision_rects:
@@ -240,7 +249,25 @@ class TiledMap:
                             next_y + height > bottom:
                         next_y = min(next_y, bottom - height)
                         hit_ceiling = True
-            y = next_y
+            max_y = self.pixel_height - height
+            if max_y < 0:
+                y = self.pixel_height / 2 - height / 2
+                hit_ceiling = dy > 0
+                hit_bottom = dy < 0
+            else:
+                if next_y < 0:
+                    next_y = 0
+                    hit_bottom = dy < 0
+                if next_y > max_y:
+                    next_y = max_y
+                    hit_ceiling = dy > 0
+                y = next_y
 
-        grounded = landed or self.is_supported(x, y, width)
+        max_x = self.pixel_width - half_width
+        x = self.pixel_width / 2 if max_x < half_width else \
+            min(max(x, half_width), max_x)
+        max_y = self.pixel_height - height
+        y = self.pixel_height / 2 - height / 2 if max_y < 0 else \
+            min(max(y, 0), max_y)
+        grounded = landed or hit_bottom or self.is_supported(x, y, width)
         return x, y, grounded, hit_ceiling

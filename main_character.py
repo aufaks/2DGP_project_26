@@ -5,8 +5,8 @@ from pico2d import *
 
 class MainCharacter:
     MOVE_SPEED = 240.0
-    JUMP_SPEED = 650.0
-    GRAVITY = 1800.0
+    JUMP_SPEED = 700.0
+    GRAVITY = 1500.0
     MAX_DELTA_TIME = 0.1
 
     FRAME_WIDTH = 254
@@ -118,7 +118,7 @@ class MainCharacter:
 
         self.animation_time += dt
 
-    def draw(self):
+    def draw(self, camera=None):
         frame_index = (
             int(self.run_animation_time * self.FRAMES_PER_SECOND)
             % self.FRAME_COUNT
@@ -127,9 +127,13 @@ class MainCharacter:
         )
         source_x = frame_index * self.FRAME_WIDTH
         draw_size = self.DRAW_SIZE
-        foot_offset = (
+        draw_x = self.x
+        draw_y = self.y + draw_size / 2 - (
             self.FRAME_FOOT_OFFSET * draw_size / self.FRAME_HEIGHT
         )
+        if camera is not None:
+            draw_x, draw_y = camera.world_to_screen(draw_x, draw_y)
+            draw_size = camera.transform_size(draw_size)
         self.image.clip_composite_draw(
             source_x,
             0,
@@ -137,8 +141,8 @@ class MainCharacter:
             self.FRAME_HEIGHT,
             0,
             'h' if self.facing_left else '',
-            self.x,
-            self.y + draw_size / 2 - foot_offset,
+            draw_x,
+            draw_y,
             draw_size,
             draw_size,
         )
