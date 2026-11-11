@@ -1,5 +1,6 @@
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import main_character
@@ -41,6 +42,7 @@ class TiledMapTests(unittest.TestCase):
         self.assertEqual((tiled_map.width, tiled_map.height), (100, 25))
         self.assertEqual(len(tiled_map.tile_layers), 2)
         self.assertEqual(tiled_map.collision_rects, [(0, 0, 3200, 160)])
+        self.assertEqual(tiled_map.platform_rects, [(320, 320, 640, 352)])
         self.assertEqual(tiled_map.player_spawn, (96, 160))
 
         terrain = tiled_map.tile_layers[1][1]
@@ -66,6 +68,26 @@ class TiledMapTests(unittest.TestCase):
         tiled_map.collision_rects.append((128, 120, 160, 300))
         x, _, _, _ = tiled_map.move_actor(96, 160, 36, 60, 50, 0)
         self.assertEqual(x, 110)
+
+    def test_platform_tiles_block_sides_top_and_bottom(self):
+        tiled_map = TiledMap(self.map_path)
+
+        x, y, grounded, hit_ceiling = tiled_map.move_actor(
+            400, 200, 36, 60, 0, 180
+        )
+        self.assertEqual((x, y), (400, 260))
+        self.assertFalse(grounded)
+        self.assertTrue(hit_ceiling)
+
+        x, y, grounded, hit_ceiling = tiled_map.move_actor(
+            400, 400, 36, 60, 0, -100
+        )
+        self.assertEqual((x, y), (400, 352))
+        self.assertTrue(grounded)
+        self.assertFalse(hit_ceiling)
+
+        x, _, _, _ = tiled_map.move_actor(200, 330, 36, 60, 200, 0)
+        self.assertEqual(x, 302)
 
     def test_keeps_actor_inside_map_boundaries(self):
         tiled_map = TiledMap(self.map_path)
@@ -177,15 +199,39 @@ class TiledMapTests(unittest.TestCase):
             airtime += 1 / 60
             jump_height = max(jump_height, player.y)
 
-        self.assertGreater(jump_height, 150)
+        self.assertGreater(jump_height, 250)
         self.assertGreater(airtime, 0.85)
+
+    def test_player_can_jump_onto_the_tile_platform(self):
+        tiled_map = TiledMap(self.map_path)
+        with patch('main_character.load_image', return_value=FakeImage()):
+            player = MainCharacter(x=200, y=160, collision_map=tiled_map)
+
+        player.handle_event(SimpleNamespace(
+            type=main_character.SDL_KEYDOWN,
+            key=main_character.SDLK_SPACE,
+        ))
+        player.handle_event(SimpleNamespace(
+            type=main_character.SDL_KEYDOWN,
+            key=main_character.SDLK_d,
+        ))
+        for _ in range(120):
+            player.update(1 / 60)
+            if player.grounded and player.y > 160:
+                break
+
+        self.assertTrue(player.grounded)
+        self.assertEqual(player.y, 352)
 
     def test_player_uses_and_animates_the_horizontal_run_sheet(self):
         image = FakeCharacterImage()
         with patch('main_character.load_image', return_value=image) as load_image:
             player = MainCharacter()
 
-        self.assertEqual(Path(load_image.call_args.args[0]).name, 'mc_run.png')
+        self.assertEqual(
+            [Path(call.args[0]).name for call in load_image.call_args_list],
+            ['mc_run.png', 'mc_jump_fall_land.png'],
+        )
 
         player.draw()
         self.assertEqual(image.draw_calls[-1][0], 0)
@@ -198,9 +244,153 @@ class TiledMapTests(unittest.TestCase):
         source_x, source_y, source_width, source_height = image.draw_calls[-1][:4]
         self.assertEqual(
             (source_x, source_y, source_width, source_height),
-            (254, 0, 254, 254),
+            (
+                254 * (
+                    player.RUN_FIRST_FRAME
+                    + int(player.run_animation_time / player.RUN_FRAME_DURATION)
+                    % (player.FRAME_COUNT - player.RUN_FIRST_FRAME)
+                ),
+                0,
+                254,
+                254,
+            ),
         )
         self.assertEqual(image.draw_calls[-1][-2:], (96.0, 96.0))
+
+        player.run_animation_time = 0.0
+        run_frames = set()
+        for _ in range(80):
+            player.update(0.1)
+            player.draw()
+            run_frames.add(image.draw_calls[-1][0] // 254)
+        self.assertEqual(run_frames, set(range(1, 8)))
+
+    def test_run_speed_and_frame_rate_match_stride_length(self):
+        run_image = FakeCharacterImage()
+        air_image = FakeCharacterImage()
+        with patch(
+            'main_character.load_image',
+            side_effect=[run_image, air_image],
+        ):
+            player = MainCharacter(x=0, y=0, ground_y=0)
+
+        player.pressed_keys.add(main_character.SDLK_d)
+        stride_time = player.STRIDE_LENGTH_M / player.RUN_SPEED_MPS
+        for _ in range(3):
+            player.update(stride_time / 3)
+        player.draw()
+
+        expected_stride_pixels = (
+            player.STRIDE_LENGTH_M * player.PIXELS_PER_METER
+        )
+        self.assertAlmostEqual(
+            player.x,
+            expected_stride_pixels,
+            delta=player.MOVE_SPEED / 60,
+        )
+        self.assertEqual(
+            run_image.draw_calls[-1][0] // player.FRAME_WIDTH,
+            player.RUN_FIRST_FRAME,
+        )
+
+    def test_player_plays_jump_fall_and_land_animations(self):
+        image = FakeCharacterImage()
+        with patch('main_character.load_image', return_value=image):
+            player = MainCharacter(x=0, y=0, ground_y=0)
+
+        player.handle_event(SimpleNamespace(
+            type=main_character.SDL_KEYDOWN,
+            key=main_character.SDLK_SPACE,
+        ))
+        player.draw()
+        self.assertEqual(image.draw_calls[-1][0], 254)
+
+        player.update(0.1)
+        player.draw()
+        self.assertEqual(image.draw_calls[-1][0], 254)
+
+        player.update(0.1)
+        player.draw()
+        self.assertEqual(image.draw_calls[-1][0], 508)
+
+        player.update(0.1)
+        player.draw()
+        self.assertEqual(image.draw_calls[-1][0], 762)
+
+        while player.state != 'FALL':
+            player.update(1 / 60)
+        player.y = 500
+        player.velocity_y = 0
+        player.draw()
+        self.assertEqual(image.draw_calls[-1][0], 4 * 254)
+
+        fall_frames = []
+        for _ in range(4):
+            player.update(0.1)
+            player.draw()
+            fall_frames.append(image.draw_calls[-1][0])
+        self.assertEqual(fall_frames, [4 * 254, 5 * 254, 6 * 254, 4 * 254])
+
+        while not player.grounded:
+            player.update(1 / 60)
+        self.assertEqual(player.state, 'LAND')
+        player.draw()
+        self.assertEqual(image.draw_calls[-1][0], 7 * 254)
+
+        player.update(0.1)
+        player.update(0.1)
+        player.update(0.1)
+        player.draw()
+        self.assertEqual(image.draw_calls[-1][0], 9 * 254)
+
+        while player.state == 'LAND':
+            player.update(0.1)
+        player.draw()
+        self.assertEqual(image.draw_calls[-1][0], 0)
+
+    def test_player_skips_land_animation_when_landing_while_running(self):
+        run_image = FakeCharacterImage()
+        air_image = FakeCharacterImage()
+        with patch(
+            'main_character.load_image',
+            side_effect=[run_image, air_image],
+        ):
+            player = MainCharacter(x=0, y=0, ground_y=0)
+
+        player.grounded = False
+        player.velocity_y = -1
+        player.state = 'FALL'
+        player.pressed_keys.add(main_character.SDLK_d)
+        player.update(0.01)
+
+        self.assertTrue(player.grounded)
+        self.assertEqual(player.state, 'RUN')
+        player.draw()
+        self.assertEqual(len(run_image.draw_calls), 1)
+        self.assertEqual(len(air_image.draw_calls), 0)
+
+    def test_player_interrupts_land_animation_when_run_starts(self):
+        run_image = FakeCharacterImage()
+        air_image = FakeCharacterImage()
+        with patch(
+            'main_character.load_image',
+            side_effect=[run_image, air_image],
+        ):
+            player = MainCharacter(x=0, y=0, ground_y=0)
+
+        player.state = 'LAND'
+        player.animation_time = player.FRAME_DURATION
+        player.draw()
+        self.assertEqual(len(air_image.draw_calls), 1)
+
+        player.pressed_keys.add(main_character.SDLK_d)
+        player.update(1 / 60)
+        player.draw()
+
+        self.assertEqual(player.state, 'RUN')
+        self.assertEqual(player.run_animation_time, 1 / 60)
+        self.assertEqual(run_image.draw_calls[-1][0], player.FRAME_WIDTH)
+        self.assertEqual(len(air_image.draw_calls), 1)
 
     def test_camera_scales_and_centers_player(self):
         image = FakeCharacterImage()

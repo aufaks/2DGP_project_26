@@ -10,6 +10,7 @@ _FLIP_HORIZONTAL = 0x80000000
 _FLIP_VERTICAL = 0x40000000
 _FLIP_DIAGONAL = 0x20000000
 _FLIP_HEX_120 = 0x10000000
+_SOLID_TILE_TYPES = {'Grass', 'Dirt', 'Stone'}
 
 
 class TiledMap:
@@ -29,6 +30,7 @@ class TiledMap:
         self.pixel_height = self.height * self.tile_height
         self.tile_layers = []
         self.collision_rects = []
+        self.platform_rects = []
         self.player_spawn = None
 
         self.tilesets = self._load_tilesets()
@@ -85,6 +87,8 @@ class TiledMap:
             elif layer['type'] == 'group':
                 raise ValueError('Nested Tiled group layers are not supported.')
 
+        self._load_platform_tile_collisions()
+
     def _layer_data(self, layer):
         values = layer.get('data')
         if isinstance(values, str):
@@ -137,6 +141,48 @@ class TiledMap:
                     x + width / 2,
                     self.pixel_height - y - height / 2,
                 )
+
+    def _load_platform_tile_collisions(self):
+        tile_types = {}
+        for tileset in self.tilesets:
+            for tile in tileset.get('tiles', []):
+                tile_types[tileset['firstgid'] + tile['id']] = tile.get('type')
+
+        for layer, values in self.tile_layers:
+            layer_width = layer['width']
+            offset_x = layer.get('offsetx', 0) + layer.get('x', 0) * self.tile_width
+            offset_y = layer.get('offsety', 0) + layer.get('y', 0) * self.tile_height
+            for row in range(layer['height']):
+                run_start = None
+                for column in range(layer_width + 1):
+                    tile_gid = (
+                        values[row * layer_width + column] & _GID_MASK
+                        if column < layer_width
+                        else 0
+                    )
+                    solid = tile_types.get(tile_gid) in _SOLID_TILE_TYPES
+                    tile_left = offset_x + column * self.tile_width
+                    tile_right = tile_left + self.tile_width
+                    tile_top = self.pixel_height - (
+                        row * self.tile_height + offset_y
+                    )
+                    tile_bottom = tile_top - self.tile_height
+                    covered = any(
+                        left <= tile_left and right >= tile_right
+                        and bottom <= tile_bottom and top >= tile_top
+                        for left, bottom, right, top in self.collision_rects
+                    )
+                    if solid and not covered:
+                        if run_start is None:
+                            run_start = column
+                    elif run_start is not None:
+                        self.platform_rects.append((
+                            offset_x + run_start * self.tile_width,
+                            tile_bottom,
+                            offset_x + column * self.tile_width,
+                            tile_top,
+                        ))
+                        run_start = None
 
     def update(self, dt):
         pass
@@ -212,7 +258,9 @@ class TiledMap:
     def is_supported(self, x, y, width, tolerance=1.0):
         left = x - width / 2
         right = x + width / 2
-        for rect_left, rect_bottom, rect_right, rect_top in self.collision_rects:
+        for rect_left, rect_bottom, rect_right, rect_top in (
+            self.collision_rects + self.platform_rects
+        ):
             if abs(y - rect_top) <= tolerance and \
                     right > rect_left and left < rect_right:
                 return True
@@ -220,10 +268,11 @@ class TiledMap:
 
     def move_actor(self, x, y, width, height, dx, dy):
         half_width = width / 2
+        solid_rects = self.collision_rects + self.platform_rects
 
         if dx:
             next_x = x + dx
-            for left, bottom, right, top in self.collision_rects:
+            for left, bottom, right, top in solid_rects:
                 if y < top and y + height > bottom:
                     if dx > 0 and x + half_width <= left and \
                             next_x + half_width > left:
@@ -240,7 +289,7 @@ class TiledMap:
         hit_bottom = False
         if dy:
             next_y = y + dy
-            for left, bottom, right, top in self.collision_rects:
+            for left, bottom, right, top in solid_rects:
                 if x + half_width > left and x - half_width < right:
                     if dy < 0 and y >= top and next_y < top:
                         next_y = max(next_y, top)
