@@ -39,21 +39,47 @@ class TiledMapTests(unittest.TestCase):
     def test_loads_starter_map_tiles_collision_and_spawn(self):
         tiled_map = TiledMap(self.map_path)
 
-        self.assertEqual((tiled_map.width, tiled_map.height), (100, 25))
+        self.assertEqual((tiled_map.width, tiled_map.height), (150, 50))
+        self.assertEqual((tiled_map.pixel_width, tiled_map.pixel_height), (4800, 1600))
         self.assertEqual(len(tiled_map.tile_layers), 2)
         self.assertEqual(tiled_map.collision_rects, [(0, 0, 3200, 160)])
-        self.assertEqual(tiled_map.platform_rects, [(320, 320, 640, 352)])
+        self.assertEqual(
+            tiled_map.platform_rects,
+            [
+                (320, 320, 640, 352),
+                (3200, 128, 4800, 160),
+                (3200, 96, 4800, 128),
+                (3200, 64, 4800, 96),
+                (3200, 32, 4800, 64),
+                (3200, 0, 4800, 32),
+            ],
+        )
         self.assertEqual(tiled_map.player_spawn, (96, 160))
+
+        background = tiled_map.tile_layers[0][1]
+        self.assertEqual(
+            background[30 * tiled_map.width:(31 * tiled_map.width)],
+            [4] * tiled_map.width,
+        )
+        self.assertEqual(
+            background[39 * tiled_map.width + 10:39 * tiled_map.width + 20],
+            [3] * 10,
+        )
 
         terrain = tiled_map.tile_layers[1][1]
         self.assertEqual(
             terrain[20 * tiled_map.width:(21 * tiled_map.width)],
-            [1] * 100,
+            [0] * tiled_map.width,
         )
         self.assertEqual(
-            terrain[21 * tiled_map.width:],
-            [2] * (4 * 100),
+            terrain[45 * tiled_map.width:46 * tiled_map.width],
+            [1] * 100 + [0] * 50,
         )
+        self.assertEqual(
+            terrain[46 * tiled_map.width:],
+            ([2] * 100 + [0] * 50) * 4,
+        )
+        self.assertTrue(tiled_map.is_supported(4000, 160, 36))
 
     def test_resolves_ground_collision_and_wall_collision(self):
         tiled_map = TiledMap(self.map_path)
@@ -120,27 +146,40 @@ class TiledMapTests(unittest.TestCase):
         image.clip_composite_draw = count_draws
         tiled_map.draw()
 
-        self.assertEqual(draw_count, 3000)
+        expected_draw_count = sum(
+            sum(raw_gid != 0 for raw_gid in values)
+            for _, values in tiled_map.tile_layers
+        )
+        self.assertEqual(draw_count, expected_draw_count)
 
     def test_camera_scales_and_centers_map_tiles(self):
         tiled_map = TiledMap(self.map_path)
         camera = Camera(800, 576, zoom=0.75)
+        camera.follow(96, 160, tiled_map.pixel_width, tiled_map.pixel_height)
         image = tiled_map.tilesets[0]['image_object']
         draw_calls = []
         image.clip_composite_draw = lambda *args: draw_calls.append(args)
 
         tiled_map.draw()
-        unscaled_draw_calls = list(draw_calls)
         draw_calls.clear()
         tiled_map.draw(camera)
 
-        self.assertEqual(len(draw_calls), 3000)
-        for original, scaled in zip(unscaled_draw_calls, draw_calls):
+        expected_draw_count = sum(
+            sum(raw_gid != 0 for raw_gid in values)
+            for _, values in tiled_map.tile_layers
+        )
+        self.assertEqual(len(draw_calls), expected_draw_count)
+        first_row = draw_calls[:tiled_map.width]
+        for call in first_row:
+            left = call[6] - call[-2] / 2
+            right = call[6] + call[-2] / 2
+            self.assertEqual(left, round(left))
+            self.assertEqual(right, round(right))
+        for previous, current in zip(first_row, first_row[1:]):
             self.assertEqual(
-                scaled[6:8],
-                camera.world_to_screen(original[6], original[7]),
+                previous[6] + previous[-2] / 2,
+                current[6] - current[-2] / 2,
             )
-            self.assertEqual(scaled[-2:], (24.0, 24.0))
 
     def test_camera_follows_player_without_showing_outside_map(self):
         camera = Camera(800, 576, zoom=0.75)
@@ -230,7 +269,7 @@ class TiledMapTests(unittest.TestCase):
 
         self.assertEqual(
             [Path(call.args[0]).name for call in load_image.call_args_list],
-            ['mc_run.png', 'mc_jump_fall_land.png'],
+            ['mc_run.png', 'mc_idle.png', 'mc_jump_fall_land.png'],
         )
 
         player.draw()
@@ -267,10 +306,11 @@ class TiledMapTests(unittest.TestCase):
 
     def test_run_speed_and_frame_rate_match_stride_length(self):
         run_image = FakeCharacterImage()
+        idle_image = FakeCharacterImage()
         air_image = FakeCharacterImage()
         with patch(
             'main_character.load_image',
-            side_effect=[run_image, air_image],
+            side_effect=[run_image, idle_image, air_image],
         ):
             player = MainCharacter(x=0, y=0, ground_y=0)
 
@@ -348,12 +388,35 @@ class TiledMapTests(unittest.TestCase):
         player.draw()
         self.assertEqual(image.draw_calls[-1][0], 0)
 
+    def test_player_loops_six_idle_frames(self):
+        idle_image = FakeCharacterImage()
+        with patch(
+            'main_character.load_image',
+            side_effect=[
+                FakeCharacterImage(),
+                idle_image,
+                FakeCharacterImage(),
+            ],
+        ):
+            player = MainCharacter()
+
+        for frame_index in range(player.IDLE_FRAME_COUNT + 1):
+            player.animation_time = frame_index * player.FRAME_DURATION
+            player.draw()
+
+        self.assertEqual(
+            [call[0] for call in idle_image.draw_calls],
+            [frame_index * player.FRAME_WIDTH for frame_index in range(6)]
+            + [0],
+        )
+
     def test_player_skips_land_animation_when_landing_while_running(self):
         run_image = FakeCharacterImage()
+        idle_image = FakeCharacterImage()
         air_image = FakeCharacterImage()
         with patch(
             'main_character.load_image',
-            side_effect=[run_image, air_image],
+            side_effect=[run_image, idle_image, air_image],
         ):
             player = MainCharacter(x=0, y=0, ground_y=0)
 
@@ -371,10 +434,11 @@ class TiledMapTests(unittest.TestCase):
 
     def test_player_interrupts_land_animation_when_run_starts(self):
         run_image = FakeCharacterImage()
+        idle_image = FakeCharacterImage()
         air_image = FakeCharacterImage()
         with patch(
             'main_character.load_image',
-            side_effect=[run_image, air_image],
+            side_effect=[run_image, idle_image, air_image],
         ):
             player = MainCharacter(x=0, y=0, ground_y=0)
 

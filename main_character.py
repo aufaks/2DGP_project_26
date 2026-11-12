@@ -23,6 +23,7 @@ class MainCharacter:
         RUN_SPEED_MPS / STRIDE_LENGTH_M * RUN_FRAMES_PER_STRIDE
     )
     RUN_FRAME_DURATION = 1.0 / RUN_FRAMES_PER_SECOND
+    IDLE_FRAME_COUNT = 6
     FRAMES_PER_SECOND = 8.0
     FRAME_DURATION = 1.0 / FRAMES_PER_SECOND
     AIR_FRAME_COUNT = 10
@@ -42,6 +43,7 @@ class MainCharacter:
             'sprite',
         )
         self.run_image = load_image(os.path.join(sprite_dir, 'mc_run.png'))
+        self.idle_image = load_image(os.path.join(sprite_dir, 'mc_idle.png'))
         self.air_image = load_image(
             os.path.join(sprite_dir, 'mc_jump_fall_land.png')
         )
@@ -157,6 +159,12 @@ class MainCharacter:
                 self.LAND_FRAME_COUNT - 1,
             )
             image = self.air_image
+        elif self.state == 'IDLE':
+            frame_index = (
+                int(self.animation_time / self.FRAME_DURATION)
+                % self.IDLE_FRAME_COUNT
+            )
+            image = self.idle_image
         else:
             frame_index = (
                 self.RUN_FIRST_FRAME

@@ -230,9 +230,22 @@ class TiledMap:
                 draw_width = self.tile_width
                 draw_height = self.tile_height
                 if camera is not None:
-                    x, y = camera.world_to_screen(x, y)
-                    draw_width = camera.transform_size(draw_width)
-                    draw_height = camera.transform_size(draw_height)
+                    left, bottom = camera.world_to_screen(
+                        x - self.tile_width / 2,
+                        y - self.tile_height / 2,
+                    )
+                    right, top = camera.world_to_screen(
+                        x + self.tile_width / 2,
+                        y + self.tile_height / 2,
+                    )
+                    left = round(left)
+                    bottom = round(bottom)
+                    right = round(right)
+                    top = round(top)
+                    x = (left + right) / 2
+                    y = (bottom + top) / 2
+                    draw_width = right - left
+                    draw_height = top - bottom
                 tileset['image_object'].clip_composite_draw(
                     source_x,
                     source_y,
