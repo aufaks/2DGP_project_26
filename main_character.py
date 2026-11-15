@@ -2,6 +2,8 @@ import os
 
 from pico2d import *
 
+from game_commands import ActorPose, PlayerCommand
+
 
 class MainCharacter:
     DRAW_SIZE = 96.0
@@ -37,16 +39,27 @@ class MainCharacter:
     COLLIDER_WIDTH = 36.0
     COLLIDER_HEIGHT = 60.0
 
-    def __init__(self, x=400.0, y=50.0, ground_y=50.0, collision_map=None):
-        sprite_dir = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            'sprite',
-        )
-        self.run_image = load_image(os.path.join(sprite_dir, 'mc_run.png'))
-        self.idle_image = load_image(os.path.join(sprite_dir, 'mc_idle.png'))
-        self.air_image = load_image(
-            os.path.join(sprite_dir, 'mc_jump_fall_land.png')
-        )
+    def __init__(
+        self,
+        x=400.0,
+        y=50.0,
+        ground_y=50.0,
+        collision_map=None,
+        sprite_images=None,
+    ):
+        if sprite_images is None:
+            sprite_dir = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                'sprite',
+            )
+            sprite_images = (
+                load_image(os.path.join(sprite_dir, 'mc_run.png')),
+                load_image(os.path.join(sprite_dir, 'mc_idle.png')),
+                load_image(os.path.join(sprite_dir, 'mc_jump_fall_land.png')),
+            )
+
+        self.run_image, self.idle_image, self.air_image = sprite_images
+        self.sprite_images = sprite_images
 
         self.x = float(x)
         self.y = float(y)
@@ -71,6 +84,9 @@ class MainCharacter:
         self.run_animation_time = 0.0
         self.state = 'IDLE' if self.grounded else 'FALL'
         self.animation_time = 0.0
+        self._jump_pressed = False
+        self._pending_command = None
+        self.last_command = PlayerCommand()
 
     def handle_event(self, event):
         if event.type == SDL_KEYDOWN:
@@ -79,17 +95,65 @@ class MainCharacter:
                 self.grounded = False
                 self.velocity_y = self.JUMP_SPEED
                 self._set_state('JUMP')
+                self._jump_pressed = True
         elif event.type == SDL_KEYUP:
             self.pressed_keys.discard(event.key)
 
-    def update(self, dt=1 / 60):
+    def command_for_tick(self):
+        if self._pending_command is None:
+            move_x = int(
+                SDLK_RIGHT in self.pressed_keys or SDLK_d in self.pressed_keys
+            ) - int(
+                SDLK_LEFT in self.pressed_keys or SDLK_a in self.pressed_keys
+            )
+            self._pending_command = PlayerCommand(
+                move_x=move_x,
+                jump_pressed=self._jump_pressed,
+            )
+            self._jump_pressed = False
+        return self._pending_command
+
+    def capture_pose(self):
+        return ActorPose(
+            self.x,
+            self.y,
+            self.facing_left,
+            self.velocity_y,
+            self.grounded,
+        )
+
+    def restore_pose(self, pose):
+        self.x = pose.x
+        self.y = pose.y
+        self.facing_left = pose.facing_left
+        self.velocity_y = pose.velocity_y
+        self.grounded = pose.grounded
+        self.pressed_keys.clear()
+        self.is_moving = False
+        self.run_animation_time = 0.0
+        self.animation_time = 0.0
+        self._jump_pressed = False
+        self._pending_command = None
+        self.last_command = PlayerCommand()
+        self.state = (
+            'IDLE' if self.grounded
+            else 'JUMP' if self.velocity_y > 0
+            else 'FALL'
+        )
+
+    def update(self, dt=1 / 60, command=None):
         dt = max(0.0, min(float(dt), self.MAX_DELTA_TIME))
 
-        move_x = int(
-            SDLK_RIGHT in self.pressed_keys or SDLK_d in self.pressed_keys
-        ) - int(
-            SDLK_LEFT in self.pressed_keys or SDLK_a in self.pressed_keys
-        )
+        if command is None:
+            command = self.command_for_tick()
+        self._pending_command = None
+        self.last_command = command
+        move_x = command.move_x
+        if command.jump_pressed and self.grounded:
+            self.grounded = False
+            self.velocity_y = self.JUMP_SPEED
+            self._set_state('JUMP')
+
         self.is_moving = bool(move_x)
         if not self.is_moving:
             self.run_animation_time = 0.0

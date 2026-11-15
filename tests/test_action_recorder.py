@@ -1,0 +1,107 @@
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+import main_character
+from action_recorder import ActionRecorder
+from echo_character import EchoCharacter
+from game_commands import PlayerCommand
+from main_character import MainCharacter
+from tiled_map import TiledMap
+
+
+class FakeImage:
+    w = 128
+    h = 32
+
+    def clip_composite_draw(self, *args):
+        pass
+
+
+class ActionRecorderTests(unittest.TestCase):
+    def setUp(self):
+        self.character_image = patch(
+            'main_character.load_image',
+            return_value=FakeImage(),
+        )
+        self.character_image.start()
+        self.addCleanup(self.character_image.stop)
+
+    def test_records_commands_and_replaces_the_previous_recording(self):
+        player = MainCharacter(x=100, y=0, ground_y=0)
+        recorder = ActionRecorder()
+
+        recorder.start(player)
+        player.pressed_keys.add(main_character.SDLK_d)
+        command = player.command_for_tick()
+        recorder.record(command)
+        player.update(1 / 60)
+        self.assertEqual(recorder.stop(), recorder.start_pose)
+
+        self.assertTrue(recorder.has_recording)
+        self.assertEqual(recorder.start_pose.x, 100)
+        self.assertEqual(recorder.frames, [PlayerCommand(move_x=1)])
+
+        recorder.start(player)
+        self.assertFalse(recorder.has_recording)
+        recorder.stop()
+        self.assertFalse(recorder.has_recording)
+
+    def test_stops_recording_after_ten_seconds_at_sixty_hz(self):
+        player = MainCharacter(x=100, y=0, ground_y=0)
+        recorder = ActionRecorder()
+        recorder.start(player)
+
+        for _ in range(599):
+            self.assertFalse(recorder.record(PlayerCommand(move_x=1)))
+
+        self.assertTrue(recorder.record(PlayerCommand(move_x=1)))
+        self.assertFalse(recorder.is_recording)
+        self.assertEqual(len(recorder.frames), 600)
+
+    def test_restores_player_pose_and_clears_old_movement_input(self):
+        player = MainCharacter(x=100, y=0, ground_y=0)
+        start_pose = player.capture_pose()
+        player.pressed_keys.add(main_character.SDLK_d)
+        player.update(1 / 60)
+
+        player.restore_pose(start_pose)
+
+        self.assertEqual((player.x, player.y), (100, 0))
+        self.assertTrue(player.grounded)
+        self.assertFalse(player.pressed_keys)
+        self.assertEqual(player.state, 'IDLE')
+
+    def test_echo_replays_the_same_commands_with_map_collisions(self):
+        project_root = Path(__file__).resolve().parents[1]
+        map_path = project_root / 'maps' / 'stage_01.tmj'
+        map_image = patch('tiled_map.load_image', return_value=FakeImage())
+        map_image.start()
+        self.addCleanup(map_image.stop)
+        tiled_map = TiledMap(map_path)
+
+        player = MainCharacter(x=200, y=256, collision_map=tiled_map)
+        frames = (
+            [PlayerCommand(move_x=1, jump_pressed=True)]
+            + [PlayerCommand(move_x=1)] * 71
+        )
+        echo = EchoCharacter(
+            player.capture_pose(),
+            frames,
+            tiled_map,
+            player.sprite_images,
+        )
+
+        for frame in frames:
+            player.update(1 / 60, frame)
+            echo.update(1 / 60)
+
+        self.assertTrue(echo.finished)
+        self.assertEqual(echo.frame_index, len(frames))
+        self.assertEqual((echo.x, echo.y), (player.x, player.y))
+        self.assertEqual(echo.grounded, player.grounded)
+        self.assertEqual(echo.facing_left, player.facing_left)
+
+
+if __name__ == '__main__':
+    unittest.main()
