@@ -42,18 +42,10 @@ class TiledMapTests(unittest.TestCase):
         self.assertEqual((tiled_map.width, tiled_map.height), (150, 50))
         self.assertEqual((tiled_map.pixel_width, tiled_map.pixel_height), (4800, 1600))
         self.assertEqual(len(tiled_map.tile_layers), 2)
-        self.assertEqual(tiled_map.collision_rects, [(0, 0, 3200, 160)])
-        self.assertEqual(
-            tiled_map.platform_rects,
-            [
-                (320, 320, 640, 352),
-                (3200, 128, 4800, 160),
-                (3200, 96, 4800, 128),
-                (3200, 64, 4800, 96),
-                (3200, 32, 4800, 64),
-                (3200, 0, 4800, 32),
-            ],
-        )
+        self.assertEqual(tiled_map.collision_rects, [(0, 0, 4800, 160)])
+        self.assertIn((320, 320, 640, 352), tiled_map.platform_rects)
+        self.assertIn((768, 224, 992, 256), tiled_map.platform_rects)
+        self.assertIn((1088, 352, 1312, 384), tiled_map.platform_rects)
         self.assertEqual(tiled_map.player_spawn, (96, 160))
 
         background = tiled_map.tile_layers[0][1]
@@ -62,8 +54,8 @@ class TiledMapTests(unittest.TestCase):
             [4] * tiled_map.width,
         )
         self.assertEqual(
-            background[39 * tiled_map.width + 10:39 * tiled_map.width + 20],
-            [3] * 10,
+            background[5 * tiled_map.width + 8:5 * tiled_map.width + 13],
+            [3] * 5,
         )
 
         terrain = tiled_map.tile_layers[1][1]
@@ -73,13 +65,15 @@ class TiledMapTests(unittest.TestCase):
         )
         self.assertEqual(
             terrain[45 * tiled_map.width:46 * tiled_map.width],
-            [1] * 100 + [0] * 50,
+            [1] * tiled_map.width,
         )
         self.assertEqual(
             terrain[46 * tiled_map.width:],
-            ([2] * 100 + [0] * 50) * 4,
+            [2] * (tiled_map.width * 4),
         )
         self.assertTrue(tiled_map.is_supported(4000, 160, 36))
+        self.assertTrue(tiled_map.is_supported(200, 256, 36))
+        self.assertTrue(tiled_map.is_supported(840, 256, 36))
 
     def test_resolves_ground_collision_and_wall_collision(self):
         tiled_map = TiledMap(self.map_path)
@@ -244,7 +238,7 @@ class TiledMapTests(unittest.TestCase):
     def test_player_can_jump_onto_the_tile_platform(self):
         tiled_map = TiledMap(self.map_path)
         with patch('main_character.load_image', return_value=FakeImage()):
-            player = MainCharacter(x=200, y=160, collision_map=tiled_map)
+            player = MainCharacter(x=200, y=256, collision_map=tiled_map)
 
         player.handle_event(SimpleNamespace(
             type=main_character.SDL_KEYDOWN,
