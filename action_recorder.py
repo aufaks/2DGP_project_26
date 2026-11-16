@@ -6,11 +6,24 @@ class ActionRecorder:
         self.is_recording = False
         self.start_pose = None
         self.frames = []
+        self.fixed_dt = float(fixed_dt)
         self.max_frames = max(1, int(round(max_duration_seconds / fixed_dt)))
 
     @property
     def has_recording(self):
         return bool(self.frames) and not self.is_recording
+
+    @property
+    def progress(self):
+        return min(1.0, len(self.frames) / self.max_frames)
+
+    @property
+    def remaining_seconds(self):
+        return max(0, self.max_frames - len(self.frames)) * self.fixed_dt
+
+    @property
+    def recorded_seconds(self):
+        return len(self.frames) * self.fixed_dt
 
     def start(self, actor):
         self.start_pose = actor.capture_pose()

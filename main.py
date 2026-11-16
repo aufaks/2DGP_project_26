@@ -8,6 +8,7 @@ import main_character
 from action_recorder import ActionRecorder
 from camera import Camera
 from echo_character import EchoCharacter
+from echo_slot_ui import draw_echo_slot_ui, load_echo_slot_font
 from hold_action_effect import draw_hold_action_effect
 from hold_key_tracker import HoldKeyTracker
 from recording_effect import draw_recording_effect
@@ -26,6 +27,7 @@ hold_key_tracker = HoldKeyTracker(HOLD_DURATION_SECONDS)
 hold_action_effect = None
 HOLD_EFFECT_DURATION = 0.65
 camera = Camera(800, 576, zoom=0.75)
+echo_slot_font = None
 
 
 def stop_recording():
@@ -78,6 +80,7 @@ def handle_events():
                         action_recorder.frames,
                         level_map,
                         player.sprite_images,
+                        fixed_dt=FIXED_DT,
                     )
                     game_world.add_object(active_echo, 3)
         elif event.type == SDL_KEYUP and event.key in hotkey_keys_down:
@@ -162,10 +165,12 @@ def render_world():
             )
         else:
             hold_action_effect = None
+    draw_echo_slot_ui(action_recorder, active_echo, echo_slot_font)
     update_canvas()
 
 running = True
 open_canvas(800, 576)
+echo_slot_font = load_echo_slot_font()
 reset_world()
 last_frame_time = time.perf_counter()
 accumulator = 0.0

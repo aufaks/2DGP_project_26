@@ -59,6 +59,18 @@ class ActionRecorderTests(unittest.TestCase):
         self.assertFalse(recorder.is_recording)
         self.assertEqual(len(recorder.frames), 600)
 
+    def test_reports_recording_progress_and_remaining_time(self):
+        player = MainCharacter(x=100, y=0, ground_y=0)
+        recorder = ActionRecorder(max_duration_seconds=2.0)
+        recorder.start(player)
+
+        for _ in range(30):
+            recorder.record(PlayerCommand())
+
+        self.assertAlmostEqual(recorder.progress, 0.25)
+        self.assertAlmostEqual(recorder.remaining_seconds, 1.5)
+        self.assertAlmostEqual(recorder.recorded_seconds, 0.5)
+
     def test_restores_player_pose_and_clears_old_movement_input(self):
         player = MainCharacter(x=100, y=0, ground_y=0)
         start_pose = player.capture_pose()
@@ -109,12 +121,18 @@ class ActionRecorderTests(unittest.TestCase):
             player.sprite_images,
         )
 
-        for frame in frames:
+        self.assertAlmostEqual(echo.remaining_seconds, len(frames) / 60)
+        for index, frame in enumerate(frames):
             player.update(1 / 60, frame)
             echo.update(1 / 60)
+            if index == 0:
+                self.assertAlmostEqual(echo.remaining_seconds, (len(frames) - 1) / 60)
+                self.assertAlmostEqual(echo.progress, 1 / len(frames))
 
         self.assertTrue(echo.finished)
         self.assertEqual(echo.frame_index, len(frames))
+        self.assertEqual(echo.remaining_seconds, 0)
+        self.assertEqual(echo.progress, 1)
         self.assertEqual((echo.x, echo.y), (player.x, player.y))
         self.assertEqual(echo.grounded, player.grounded)
         self.assertEqual(echo.facing_left, player.facing_left)
