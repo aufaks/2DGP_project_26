@@ -72,6 +72,23 @@ class ActionRecorderTests(unittest.TestCase):
         self.assertFalse(player.pressed_keys)
         self.assertEqual(player.state, 'IDLE')
 
+    def test_restores_only_the_saved_player_position(self):
+        player = MainCharacter(x=100, y=0, ground_y=0)
+        saved_position = player.capture_position()
+
+        player.x = 250
+        player.y = 120
+        player.facing_left = True
+        player.velocity_y = 300
+        player.grounded = False
+
+        player.restore_position(saved_position)
+
+        self.assertEqual((player.x, player.y), saved_position)
+        self.assertTrue(player.facing_left)
+        self.assertEqual(player.velocity_y, 300)
+        self.assertFalse(player.grounded)
+
     def test_echo_replays_the_same_commands_with_map_collisions(self):
         project_root = Path(__file__).resolve().parents[1]
         map_path = project_root / 'maps' / 'stage_01.tmj'

@@ -8,16 +8,23 @@ import main_character
 from action_recorder import ActionRecorder
 from camera import Camera
 from echo_character import EchoCharacter
+from hold_action_effect import draw_hold_action_effect
+from hold_key_tracker import HoldKeyTracker
 from recording_effect import draw_recording_effect
 from tiled_map import TiledMap
 
 player = None
 level_map = None
 FIXED_DT = 1 / 60
+HOLD_DURATION_SECONDS = 2.0
 action_recorder = ActionRecorder(fixed_dt=FIXED_DT)
 active_echo = None
 pending_player_restore = None
+saved_player_position = None
 hotkey_keys_down = set()
+hold_key_tracker = HoldKeyTracker(HOLD_DURATION_SECONDS)
+hold_action_effect = None
+HOLD_EFFECT_DURATION = 0.65
 camera = Camera(800, 576, zoom=0.75)
 
 
@@ -30,14 +37,32 @@ def stop_recording():
 
 
 def handle_events():
-    global running, active_echo
+    global running, active_echo, pending_player_restore, saved_player_position
+    global hold_action_effect
 
     event_list = get_events()
+    for key in hold_key_tracker.ready_keys(time.perf_counter()):
+        if key == SDLK_c and player is not None:
+            saved_player_position = player.capture_position()
+            hold_action_effect = ('save', time.perf_counter())
+        elif (
+            key == SDLK_z
+            and player is not None
+            and saved_player_position is not None
+        ):
+            player.restore_position(saved_player_position)
+            pending_player_restore = None
+            hold_action_effect = ('restore', time.perf_counter())
+
     for event in event_list:
         if event.type == SDL_QUIT:
             running = False
         elif event.type == SDL_KEYDOWN and event.key == SDLK_ESCAPE:
             running = False
+        elif event.type == SDL_KEYDOWN and event.key in (SDLK_c, SDLK_z):
+            hold_key_tracker.key_down(event.key, time.perf_counter())
+        elif event.type == SDL_KEYUP and event.key in (SDLK_c, SDLK_z):
+            hold_key_tracker.key_up(event.key)
         elif event.type == SDL_KEYDOWN and event.key in (SDLK_i, SDLK_j):
             if event.key not in hotkey_keys_down:
                 hotkey_keys_down.add(event.key)
@@ -65,6 +90,7 @@ def handle_events():
 
 def reset_world():
     global player, level_map, active_echo, pending_player_restore
+    global saved_player_position, hold_action_effect
 
     map_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
@@ -77,6 +103,9 @@ def reset_world():
     action_recorder.reset()
     active_echo = None
     pending_player_restore = None
+    saved_player_position = None
+    hold_action_effect = None
+    hold_key_tracker.reset()
 
     spawn_x, spawn_y = level_map.player_spawn or (400.0, 64.0)
     player = main_character.MainCharacter(
@@ -115,10 +144,24 @@ def update_world(dt):
         )
 
 def render_world():
+    global hold_action_effect
+
     clear_canvas()
     game_world.render(camera)
     if action_recorder.is_recording:
         draw_recording_effect(camera.width, camera.height)
+    if hold_action_effect is not None:
+        action, started_at = hold_action_effect
+        elapsed = time.perf_counter() - started_at
+        if elapsed < HOLD_EFFECT_DURATION:
+            draw_hold_action_effect(
+                camera.width,
+                camera.height,
+                action,
+                elapsed,
+            )
+        else:
+            hold_action_effect = None
     update_canvas()
 
 running = True

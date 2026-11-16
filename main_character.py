@@ -122,6 +122,12 @@ class MainCharacter:
             self.grounded,
         )
 
+    def capture_position(self):
+        return self.x, self.y
+
+    def restore_position(self, position):
+        self.x, self.y = position
+
     def restore_pose(self, pose):
         self.x = pose.x
         self.y = pose.y
