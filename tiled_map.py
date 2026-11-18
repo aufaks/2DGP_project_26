@@ -12,7 +12,7 @@ _FLIP_HORIZONTAL = 0x80000000
 _FLIP_VERTICAL = 0x40000000
 _FLIP_DIAGONAL = 0x20000000
 _FLIP_HEX_120 = 0x10000000
-_SOLID_TILE_TYPES = {'Grass', 'Dirt', 'Stone'}
+_SLOPE_TILE_TYPES = {'SlopeUpLeft', 'SlopeUpRight'}
 
 
 class TiledMap:
@@ -33,6 +33,7 @@ class TiledMap:
         self.tile_layers = []
         self.collision_rects = []
         self.platform_rects = []
+        self.slope_tiles = []
         self.player_spawn = None
         self.doors = {}
         self.pressure_plates = []
@@ -201,43 +202,60 @@ class TiledMap:
         tile_types = {}
         for tileset in self.tilesets:
             for tile in tileset.get('tiles', []):
-                tile_types[tileset['firstgid'] + tile['id']] = tile.get('type')
+                tile_types[tileset['firstgid'] + tile['id']] = (
+                    tile.get('class') or tile.get('type')
+                )
 
+        tiles_by_rect = {}
         for layer, values in self.tile_layers:
             layer_width = layer['width']
             offset_x = layer.get('offsetx', 0) + layer.get('x', 0) * self.tile_width
             offset_y = layer.get('offsety', 0) + layer.get('y', 0) * self.tile_height
             for row in range(layer['height']):
-                run_start = None
-                for column in range(layer_width + 1):
-                    tile_gid = (
-                        values[row * layer_width + column] & _GID_MASK
-                        if column < layer_width
-                        else 0
-                    )
-                    solid = tile_types.get(tile_gid) in _SOLID_TILE_TYPES
+                for column in range(layer_width):
+                    raw_gid = values[row * layer_width + column]
+                    tile_gid = raw_gid & _GID_MASK
+                    if tile_gid == 0:
+                        continue
+                    tile_type = tile_types.get(tile_gid)
                     tile_left = offset_x + column * self.tile_width
                     tile_right = tile_left + self.tile_width
                     tile_top = self.pixel_height - (
                         row * self.tile_height + offset_y
                     )
                     tile_bottom = tile_top - self.tile_height
-                    covered = any(
-                        left <= tile_left and right >= tile_right
-                        and bottom <= tile_bottom and top >= tile_top
-                        for left, bottom, right, top in self.collision_rects
+                    rect = (tile_left, tile_bottom, tile_right, tile_top)
+                    tiles_by_rect[rect] = (raw_gid, tile_type)
+
+        for rect, (raw_gid, tile_type) in tiles_by_rect.items():
+            if tile_type == 'Sky':
+                continue
+            left, bottom, right, top = rect
+            covered = any(
+                collision_left <= left and collision_right >= right
+                and collision_bottom <= bottom and collision_top >= top
+                for collision_left, collision_bottom, collision_right,
+                collision_top in self.collision_rects
+            )
+            if covered:
+                continue
+            if tile_type in _SLOPE_TILE_TYPES:
+                flags = raw_gid & ~_GID_MASK
+                if flags & (_FLIP_VERTICAL | _FLIP_DIAGONAL | _FLIP_HEX_120):
+                    raise ValueError(
+                        'Vertical, diagonal, and hexagonal Tiled slope '
+                        'transforms are not supported.'
                     )
-                    if solid and not covered:
-                        if run_start is None:
-                            run_start = column
-                    elif run_start is not None:
-                        self.platform_rects.append((
-                            offset_x + run_start * self.tile_width,
-                            tile_bottom,
-                            offset_x + column * self.tile_width,
-                            tile_top,
-                        ))
-                        run_start = None
+                slope_type = tile_type
+                if flags & _FLIP_HORIZONTAL:
+                    slope_type = (
+                        'SlopeUpLeft'
+                        if tile_type == 'SlopeUpRight'
+                        else 'SlopeUpRight'
+                    )
+                self.slope_tiles.append((*rect, slope_type))
+            else:
+                self.platform_rects.append(rect)
 
     def update(self, dt):
         pass
@@ -336,6 +354,59 @@ class TiledMap:
             door.rect for door in self.doors.values() if not door.is_open
         ]
 
+    def _slope_surface_at(self, x):
+        surfaces = []
+        for left, bottom, right, top, slope_type in self.slope_tiles:
+            if left <= x <= right:
+                ratio = (x - left) / (right - left)
+                surface = (
+                    bottom + ratio * (top - bottom)
+                    if slope_type == 'SlopeUpRight'
+                    else top - ratio * (top - bottom)
+                )
+                surfaces.append(surface)
+        return max(surfaces) if surfaces else None
+
+    def _slope_connects_to_platform(self, next_x, direction, rect):
+        if rect not in self.platform_rects:
+            return False
+
+        left, _, right, top = rect
+        for slope_left, _, slope_right, slope_top, slope_type in self.slope_tiles:
+            if abs(top - slope_top) > 1:
+                continue
+            if direction > 0 and slope_type == 'SlopeUpRight' \
+                    and abs(slope_right - left) <= 1 \
+                    and slope_left <= next_x <= slope_right:
+                return True
+            if direction < 0 and slope_type == 'SlopeUpLeft' \
+                    and abs(slope_left - right) <= 1 \
+                    and slope_left <= next_x <= slope_right:
+                return True
+        return False
+
+    def _slope_transition_surface(self, previous_x, x, direction):
+        for slope_left, _, slope_right, slope_top, slope_type in self.slope_tiles:
+            if direction > 0 and slope_type == 'SlopeUpRight' \
+                    and previous_x <= slope_right <= x:
+                touches_platform = any(
+                    abs(left - slope_right) <= 1
+                    and abs(top - slope_top) <= 1
+                    for left, _, _, top in self.platform_rects
+                )
+                if touches_platform:
+                    return slope_top
+            if direction < 0 and slope_type == 'SlopeUpLeft' \
+                    and x <= slope_left <= previous_x:
+                touches_platform = any(
+                    abs(right - slope_left) <= 1
+                    and abs(top - slope_top) <= 1
+                    for _, _, right, top in self.platform_rects
+                )
+                if touches_platform:
+                    return slope_top
+        return None
+
     def _find_tileset(self, gid):
         for tileset in reversed(self.tilesets):
             if gid >= tileset['firstgid']:
@@ -352,25 +423,52 @@ class TiledMap:
             if abs(y - rect_top) <= tolerance and \
                     right > rect_left and left < rect_right:
                 return True
-        return False
+        slope_surface = self._slope_surface_at(x)
+        return slope_surface is not None and abs(y - slope_surface) <= tolerance
 
     def move_actor(self, x, y, width, height, dx, dy):
         half_width = width / 2
         solid_rects = self.solid_rects
+        was_supported = self.is_supported(x, y, width)
 
         if dx:
+            previous_x = x
             next_x = x + dx
             for left, bottom, right, top in solid_rects:
                 if y < top and y + height > bottom:
                     if dx > 0 and x + half_width <= left and \
                             next_x + half_width > left:
-                        next_x = min(next_x, left - half_width)
+                        if not (was_supported and self._slope_connects_to_platform(
+                                next_x,
+                                1,
+                                (left, bottom, right, top),
+                        )):
+                            next_x = min(next_x, left - half_width)
                     elif dx < 0 and x - half_width >= right and \
                             next_x - half_width < right:
-                        next_x = max(next_x, right + half_width)
+                        if not (was_supported and self._slope_connects_to_platform(
+                                next_x,
+                                -1,
+                                (left, bottom, right, top),
+                        )):
+                            next_x = max(next_x, right + half_width)
             max_x = self.pixel_width - half_width
             x = self.pixel_width / 2 if max_x < half_width else \
                 min(max(next_x, half_width), max_x)
+            if was_supported:
+                slope_surface = self._slope_surface_at(x)
+                if slope_surface is not None and \
+                        abs(slope_surface - y) <= abs(dx) + 1:
+                    y = slope_surface
+                elif slope_surface is None:
+                    transition_surface = self._slope_transition_surface(
+                        previous_x,
+                        x,
+                        1 if dx > 0 else -1,
+                    )
+                    if transition_surface is not None and \
+                            abs(transition_surface - y) <= abs(dx) + 1:
+                        y = transition_surface
 
         landed = False
         hit_ceiling = False
@@ -386,6 +484,16 @@ class TiledMap:
                             next_y + height > bottom:
                         next_y = min(next_y, bottom - height)
                         hit_ceiling = True
+            slope_surface = self._slope_surface_at(x)
+            if slope_surface is not None:
+                if dy < 0 and y >= slope_surface and \
+                        next_y <= slope_surface:
+                    next_y = max(next_y, slope_surface)
+                    landed = True
+                elif dy > 0 and y + height <= slope_surface and \
+                        next_y + height > slope_surface:
+                    next_y = min(next_y, slope_surface - height)
+                    hit_ceiling = True
             max_y = self.pixel_height - height
             if max_y < 0:
                 y = self.pixel_height / 2 - height / 2

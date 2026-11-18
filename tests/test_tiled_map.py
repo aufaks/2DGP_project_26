@@ -4,7 +4,6 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import main_character
-import game_objects
 from camera import Camera
 from main_character import MainCharacter
 from tiled_map import TiledMap
@@ -45,46 +44,42 @@ class TiledMapTests(unittest.TestCase):
 
         self.assertEqual((tiled_map.width, tiled_map.height), (150, 50))
         self.assertEqual((tiled_map.pixel_width, tiled_map.pixel_height), (4800, 1600))
-        self.assertEqual(len(tiled_map.tile_layers), 2)
+        self.assertEqual(
+            [layer['name'] for layer, _ in tiled_map.tile_layers],
+            ['Terrain'],
+        )
         self.assertEqual(tiled_map.collision_rects, [(0, 0, 4800, 160)])
-        self.assertIn((320, 320, 640, 352), tiled_map.platform_rects)
-        self.assertIn((768, 224, 992, 256), tiled_map.platform_rects)
-        self.assertIn((1088, 352, 1312, 384), tiled_map.platform_rects)
+        self.assertIn(
+            (1984, 1408, 2016, 1440),
+            tiled_map.platform_rects,
+        )
+        self.assertNotIn(
+            (256, 1408, 288, 1440),
+            tiled_map.platform_rects,
+        )
         self.assertEqual(tiled_map.player_spawn, (96, 160))
         self.assertEqual(set(tiled_map.doors), {'exit'})
         self.assertEqual(len(tiled_map.pressure_plates), 1)
         self.assertEqual(tiled_map.pressure_plates[0].target_id, 'exit')
-        self.assertEqual(tiled_map.doors['exit'].rect, (960, 160, 1008, 480))
+        self.assertEqual(tiled_map.doors['exit'].rect, (1568, 640, 1600, 800))
         self.assertEqual(
             tiled_map.pressure_plates[0].rect,
-            (800, 148, 896, 160),
+            (1024, 1396, 1120, 1408),
         )
 
-        background = tiled_map.tile_layers[0][1]
-        self.assertEqual(
-            background[30 * tiled_map.width:(31 * tiled_map.width)],
-            [4] * tiled_map.width,
-        )
-        self.assertEqual(
-            background[5 * tiled_map.width + 8:5 * tiled_map.width + 13],
-            [3] * 5,
-        )
-
-        terrain = tiled_map.tile_layers[1][1]
-        self.assertEqual(
-            terrain[20 * tiled_map.width:(21 * tiled_map.width)],
-            [0] * tiled_map.width,
-        )
-        self.assertEqual(
-            terrain[45 * tiled_map.width:46 * tiled_map.width],
-            [1] * tiled_map.width,
-        )
-        self.assertEqual(
-            terrain[46 * tiled_map.width:],
-            [2] * (tiled_map.width * 4),
-        )
+        terrain = tiled_map.tile_layers[0][1]
+        tile_types = {
+            tileset['firstgid'] + tile['id']:
+                tile.get('class') or tile.get('type')
+            for tileset in tiled_map.tilesets
+            for tile in tileset.get('tiles', [])
+        }
+        self.assertFalse(any(
+            tile_types.get(gid & 0x0FFFFFFF) == 'Sky'
+            for gid in terrain
+        ))
         self.assertTrue(tiled_map.is_supported(4000, 160, 36))
-        self.assertTrue(tiled_map.is_supported(200, 256, 36))
+        self.assertTrue(tiled_map.is_supported(1984, 1440, 36))
         self.assertTrue(tiled_map.is_supported(840, 256, 36))
 
     def test_pressure_plate_opens_its_linked_door_for_player_and_echo(self):
@@ -129,6 +124,215 @@ class TiledMapTests(unittest.TestCase):
         tiled_map.update_mechanisms([actor])
         self.assertFalse(tiled_map.pressure_plates[0].is_pressed)
         self.assertFalse(tiled_map.doors['exit'].is_open)
+
+    def _make_collision_test_map(self):
+        tiled_map = object.__new__(TiledMap)
+        tiled_map.tile_width = 32
+        tiled_map.tile_height = 32
+        tiled_map.pixel_width = 128
+        tiled_map.pixel_height = 64
+        tiled_map.collision_rects = []
+        tiled_map.platform_rects = []
+        tiled_map.slope_tiles = []
+        tiled_map.doors = {}
+        tiled_map.tilesets = [{
+            'firstgid': 1,
+            'tiles': [
+                {'id': 0, 'type': 'Grass'},
+                {'id': 1, 'type': 'Dirt'},
+                {'id': 2, 'type': 'Stone'},
+                {'id': 3, 'type': 'Sky'},
+                {'id': 4, 'type': 'SlopeUpRight'},
+                {'id': 5, 'type': 'SlopeUpLeft'},
+                {'id': 6, 'class': 'Sky'},
+            ],
+        }]
+        tiled_map.tile_layers = [(
+            {'name': 'Background', 'width': 4, 'height': 2},
+            [1, 2, 5, 6, 5, 4, 4, 0],
+        ), (
+            {'name': 'Terrain', 'width': 4, 'height': 2},
+            [0, 4, 0, 0, 0, 0, 3, 7],
+        )]
+        tiled_map._load_platform_tile_collisions()
+        return tiled_map
+
+    def test_every_non_sky_tile_collides_individually_on_any_layer(self):
+        tiled_map = self._make_collision_test_map()
+
+        self.assertEqual(tiled_map.platform_rects, [
+            (0, 32, 32, 64),
+            (64, 0, 96, 32),
+        ])
+        self.assertEqual(tiled_map.slope_tiles, [
+            (64, 32, 96, 64, 'SlopeUpRight'),
+            (96, 32, 128, 64, 'SlopeUpLeft'),
+            (0, 0, 32, 32, 'SlopeUpRight'),
+        ])
+
+        _, y, _, hit_ceiling = tiled_map.move_actor(16, 20, 8, 8, 0, 10)
+        self.assertEqual(y, 24)
+        self.assertTrue(hit_ceiling)
+
+        _, right_y, right_grounded, _ = tiled_map.move_actor(
+            8, 8, 8, 8, 8, 0
+        )
+        _, left_y, left_grounded, _ = tiled_map.move_actor(
+            104, 56, 8, 8, 8, 0
+        )
+        self.assertEqual(right_y, 16)
+        self.assertTrue(right_grounded)
+        self.assertEqual(left_y, 48)
+        self.assertTrue(left_grounded)
+
+    def _add_slope_tile(self, tiled_map, gid, column=20, row=20):
+        terrain_layer, terrain = next(
+            (layer, values)
+            for layer, values in tiled_map.tile_layers
+            if layer['name'] == 'Terrain'
+        )
+        terrain[row * terrain_layer['width'] + column] = gid
+        tiled_map.platform_rects.clear()
+        tiled_map.slope_tiles.clear()
+        tiled_map._load_platform_tile_collisions()
+
+    def test_slope_tiles_load_and_support_both_directions(self):
+        tiled_map = TiledMap(self.map_path)
+        self._add_slope_tile(tiled_map, 5)
+        self._add_slope_tile(tiled_map, 6, column=25)
+
+        self.assertIn(
+            (640, 928, 672, 960, 'SlopeUpRight'),
+            tiled_map.slope_tiles,
+        )
+        self.assertIn(
+            (800, 928, 832, 960, 'SlopeUpLeft'),
+            tiled_map.slope_tiles,
+        )
+        self.assertTrue(tiled_map.is_supported(644, 932, 36))
+        self.assertTrue(tiled_map.is_supported(804, 956, 36))
+
+        _, uphill_y, uphill_grounded, _ = tiled_map.move_actor(
+            644, 932, 36, 60, 4, 0
+        )
+        _, downhill_y, downhill_grounded, _ = tiled_map.move_actor(
+            804, 956, 36, 60, 4, 0
+        )
+        self.assertEqual(uphill_y, 936)
+        self.assertTrue(uphill_grounded)
+        self.assertEqual(downhill_y, 952)
+        self.assertTrue(downhill_grounded)
+
+    def test_actor_lands_on_slope_and_hits_its_underside(self):
+        tiled_map = TiledMap(self.map_path)
+        self._add_slope_tile(tiled_map, 5)
+
+        _, y, grounded, hit_ceiling = tiled_map.move_actor(
+            656, 980, 36, 60, 0, -50
+        )
+        self.assertEqual(y, 944)
+        self.assertTrue(grounded)
+        self.assertFalse(hit_ceiling)
+
+        _, y, grounded, hit_ceiling = tiled_map.move_actor(
+            656, 870, 36, 60, 0, 30
+        )
+        self.assertEqual(y, 884)
+        self.assertFalse(grounded)
+        self.assertTrue(hit_ceiling)
+
+    def test_main_character_walks_up_slope(self):
+        tiled_map = TiledMap(self.map_path)
+        self._add_slope_tile(tiled_map, 5)
+        with patch('main_character.load_image', return_value=FakeImage()):
+            player = MainCharacter(x=644, y=932, collision_map=tiled_map)
+
+        player.pressed_keys.add(main_character.SDLK_d)
+        player.update(1 / 60)
+
+        self.assertTrue(player.grounded)
+        self.assertAlmostEqual(
+            player.y,
+            tiled_map._slope_surface_at(player.x),
+        )
+        self.assertGreater(player.y, 932)
+
+    def test_horizontal_tile_flip_reverses_slope_collision(self):
+        tiled_map = TiledMap(self.map_path)
+        self._add_slope_tile(tiled_map, 0x80000000 | 5)
+
+        self.assertIn(
+            (640, 928, 672, 960, 'SlopeUpLeft'),
+            tiled_map.slope_tiles,
+        )
+
+    def test_adjacent_slope_tiles_have_a_continuous_surface(self):
+        tiled_map = TiledMap(self.map_path)
+        terrain_layer, terrain = next(
+            (layer, values)
+            for layer, values in tiled_map.tile_layers
+            if layer['name'] == 'Terrain'
+        )
+        terrain[20 * terrain_layer['width'] + 20] = 5
+        terrain[19 * terrain_layer['width'] + 21] = 5
+        tiled_map.platform_rects.clear()
+        tiled_map.slope_tiles.clear()
+        tiled_map._load_platform_tile_collisions()
+
+        self.assertAlmostEqual(tiled_map._slope_surface_at(671.9), 959.9)
+        self.assertEqual(tiled_map._slope_surface_at(672), 960)
+        self.assertAlmostEqual(tiled_map._slope_surface_at(672.1), 960.1)
+
+        x, y, grounded, _ = tiled_map.move_actor(
+            668, 956, 36, 60, 4, 0
+        )
+        self.assertEqual((x, y), (672, 960))
+        self.assertTrue(grounded)
+
+    def test_actor_can_walk_from_slope_onto_higher_solid_tile(self):
+        tiled_map = self._make_collision_test_map()
+        _, values = tiled_map.tile_layers[0]
+        values[:] = [0, 0, 0, 0, 5, 2, 0, 0]
+        tiled_map.platform_rects.clear()
+        tiled_map.slope_tiles.clear()
+        tiled_map._load_platform_tile_collisions()
+
+        x, y = 14, 14
+        positions = []
+        for _ in range(5):
+            x, y, grounded, _ = tiled_map.move_actor(
+                x, y, 36, 8, 4, 0
+            )
+            positions.append((x, y))
+            self.assertTrue(grounded)
+
+        self.assertEqual(
+            positions,
+            [(18, 18), (22, 22), (26, 26), (30, 30), (34, 32)],
+        )
+
+        tiled_map = self._make_collision_test_map()
+        _, background = tiled_map.tile_layers[0]
+        _, terrain = tiled_map.tile_layers[1]
+        background[:] = [0, 0, 0, 0, 0, 0, 3, 6]
+        terrain[:] = [0] * len(terrain)
+        tiled_map.platform_rects.clear()
+        tiled_map.slope_tiles.clear()
+        tiled_map._load_platform_tile_collisions()
+
+        x, y = 114, 14
+        positions = []
+        for _ in range(5):
+            x, y, grounded, _ = tiled_map.move_actor(
+                x, y, 36, 8, -4, 0
+            )
+            positions.append((x, y))
+            self.assertTrue(grounded)
+
+        self.assertEqual(
+            positions,
+            [(110, 18), (106, 22), (102, 26), (98, 30), (94, 32)],
+        )
 
     def test_resolves_ground_collision_and_wall_collision(self):
         tiled_map = TiledMap(self.map_path)

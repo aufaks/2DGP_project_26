@@ -1,12 +1,12 @@
 {
-  "columns": 4,
+  "columns": 6,
   "image": "tileset.png",
   "imageheight": 32,
-  "imagewidth": 128,
+  "imagewidth": 192,
   "margin": 0,
   "name": "REPLAY_StarterTiles",
   "spacing": 0,
-  "tilecount": 4,
+  "tilecount": 6,
   "tiledversion": "1.11.0",
   "tileheight": 32,
   "tilewidth": 32,
@@ -28,6 +28,14 @@
     {
       "id": 3,
       "type": "Sky"
+    },
+    {
+      "id": 4,
+      "type": "SlopeUpRight"
+    },
+    {
+      "id": 5,
+      "type": "SlopeUpLeft"
     }
   ]
 }
