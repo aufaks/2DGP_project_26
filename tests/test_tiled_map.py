@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import main_character
+import game_objects
 from camera import Camera
 from main_character import MainCharacter
 from tiled_map import TiledMap
@@ -35,6 +36,9 @@ class TiledMapTests(unittest.TestCase):
         self.load_image = patch('tiled_map.load_image', return_value=FakeImage())
         self.load_image.start()
         self.addCleanup(self.load_image.stop)
+        self.draw_rectangle = patch('game_objects.draw_rectangle')
+        self.draw_rectangle.start()
+        self.addCleanup(self.draw_rectangle.stop)
 
     def test_loads_starter_map_tiles_collision_and_spawn(self):
         tiled_map = TiledMap(self.map_path)
@@ -47,6 +51,14 @@ class TiledMapTests(unittest.TestCase):
         self.assertIn((768, 224, 992, 256), tiled_map.platform_rects)
         self.assertIn((1088, 352, 1312, 384), tiled_map.platform_rects)
         self.assertEqual(tiled_map.player_spawn, (96, 160))
+        self.assertEqual(set(tiled_map.doors), {'exit'})
+        self.assertEqual(len(tiled_map.pressure_plates), 1)
+        self.assertEqual(tiled_map.pressure_plates[0].target_id, 'exit')
+        self.assertEqual(tiled_map.doors['exit'].rect, (960, 160, 1008, 480))
+        self.assertEqual(
+            tiled_map.pressure_plates[0].rect,
+            (800, 148, 896, 160),
+        )
 
         background = tiled_map.tile_layers[0][1]
         self.assertEqual(
@@ -74,6 +86,49 @@ class TiledMapTests(unittest.TestCase):
         self.assertTrue(tiled_map.is_supported(4000, 160, 36))
         self.assertTrue(tiled_map.is_supported(200, 256, 36))
         self.assertTrue(tiled_map.is_supported(840, 256, 36))
+
+    def test_pressure_plate_opens_its_linked_door_for_player_and_echo(self):
+        tiled_map = TiledMap(self.map_path)
+        door = tiled_map.doors['exit']
+        actor = SimpleNamespace(
+            x=848,
+            y=160,
+            grounded=True,
+            get_collision_box=lambda: (830, 160, 866, 220),
+        )
+
+        tiled_map.update_mechanisms([actor])
+        self.assertTrue(tiled_map.pressure_plates[0].is_pressed)
+        self.assertTrue(door.is_open)
+        self.assertNotIn(door.rect, tiled_map.solid_rects)
+
+        actor.x = 980
+        actor.y = 160
+        actor.get_collision_box = lambda: (962, 160, 998, 220)
+        tiled_map.update_mechanisms([actor])
+        self.assertFalse(tiled_map.pressure_plates[0].is_pressed)
+        self.assertTrue(door.is_open)
+
+        actor.x = 1040
+        actor.get_collision_box = lambda: (1022, 160, 1058, 220)
+        tiled_map.update_mechanisms([actor])
+        self.assertFalse(door.is_open)
+        self.assertIn(door.rect, tiled_map.solid_rects)
+
+    def test_closed_door_blocks_actor_and_plate_requires_grounded_actor(self):
+        tiled_map = TiledMap(self.map_path)
+        x, _, _, _ = tiled_map.move_actor(900, 160, 36, 60, 100, 0)
+        self.assertEqual(x, 942)
+
+        actor = SimpleNamespace(
+            x=848,
+            y=160,
+            grounded=False,
+            get_collision_box=lambda: (830, 160, 866, 220),
+        )
+        tiled_map.update_mechanisms([actor])
+        self.assertFalse(tiled_map.pressure_plates[0].is_pressed)
+        self.assertFalse(tiled_map.doors['exit'].is_open)
 
     def test_resolves_ground_collision_and_wall_collision(self):
         tiled_map = TiledMap(self.map_path)

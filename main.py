@@ -136,6 +136,12 @@ def update_world(dt):
         game_world.remove_object(active_echo)
         active_echo = None
 
+    if level_map is not None and player is not None:
+        actors = [player]
+        if active_echo is not None:
+            actors.append(active_echo)
+        level_map.update_mechanisms(actors)
+
     if player is not None and level_map is not None:
         camera.follow(
             player.x,

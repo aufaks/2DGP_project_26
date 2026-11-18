@@ -177,6 +177,59 @@
       "visible": true,
       "x": 0,
       "y": 0
+    },
+    {
+      "draworder": "topdown",
+      "id": 5,
+      "name": "Mechanisms",
+      "objects": [
+        {
+          "class": "Door",
+          "height": 320,
+          "id": 3,
+          "name": "Exit Door",
+          "rotation": 0,
+          "visible": true,
+          "width": 48,
+          "x": 960,
+          "y": 1120,
+          "properties": [
+            {
+              "name": "object_id",
+              "type": "string",
+              "value": "exit"
+            }
+          ]
+        },
+        {
+          "class": "PressurePlate",
+          "height": 12,
+          "id": 4,
+          "name": "Exit Switch",
+          "rotation": 0,
+          "visible": true,
+          "width": 96,
+          "x": 800,
+          "y": 1440,
+          "properties": [
+            {
+              "name": "object_id",
+              "type": "string",
+              "value": "exit_switch"
+            },
+            {
+              "name": "target_id",
+              "type": "string",
+              "value": "exit"
+            }
+          ]
+        }
+      ],
+      "opacity": 1,
+      "type": "objectgroup",
+      "visible": true,
+      "x": 0,
+      "y": 0
     }
   ],
   "nextlayerid": 5,

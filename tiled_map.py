@@ -4,6 +4,8 @@ from pathlib import Path
 
 from pico2d import load_image
 
+from game_objects import Door, PressurePlate
+
 
 _GID_MASK = 0x0FFFFFFF
 _FLIP_HORIZONTAL = 0x80000000
@@ -32,9 +34,13 @@ class TiledMap:
         self.collision_rects = []
         self.platform_rects = []
         self.player_spawn = None
+        self.doors = {}
+        self.pressure_plates = []
+        self._mechanism_object_ids = set()
 
         self.tilesets = self._load_tilesets()
         self._load_layers()
+        self._validate_mechanism_links()
 
     @staticmethod
     def _read_json(path):
@@ -141,6 +147,55 @@ class TiledMap:
                     x + width / 2,
                     self.pixel_height - y - height / 2,
                 )
+            elif layer.get('name') == 'Mechanisms':
+                self._load_mechanism_object(obj, x, y, width, height)
+
+    def _load_mechanism_object(self, obj, x, y, width, height):
+        object_type = obj.get('class') or obj.get('type')
+        properties = {
+            prop['name']: prop.get('value')
+            for prop in obj.get('properties', [])
+        }
+        object_id = properties.get('object_id')
+        if not isinstance(object_id, str) or not object_id:
+            raise ValueError(
+                'Mechanism objects must define a non-empty object_id property.'
+            )
+        if object_id in self._mechanism_object_ids:
+            raise ValueError(f'Duplicate mechanism object_id: {object_id}')
+        self._mechanism_object_ids.add(object_id)
+
+        if any(key in obj for key in ('ellipse', 'point', 'polygon', 'polyline', 'gid')) \
+                or obj.get('rotation', 0) != 0 or width <= 0 or height <= 0:
+            raise ValueError(
+                'Mechanism objects must be positive-size, unrotated rectangles.'
+            )
+        bottom = self.pixel_height - y - height
+        rect = (x, bottom, x + width, bottom + height)
+
+        if object_type == 'Door':
+            self.doors[object_id] = Door(object_id, rect)
+        elif object_type == 'PressurePlate':
+            target_id = properties.get('target_id')
+            if not isinstance(target_id, str) or not target_id:
+                raise ValueError(
+                    f"Pressure plate '{object_id}' must define a target_id property."
+                )
+            self.pressure_plates.append(
+                PressurePlate(object_id, target_id, rect)
+            )
+        else:
+            raise ValueError(
+                f"Unsupported mechanism object class: {object_type!r}"
+            )
+
+    def _validate_mechanism_links(self):
+        for plate in self.pressure_plates:
+            if plate.target_id not in self.doors:
+                raise ValueError(
+                    f"Pressure plate '{plate.object_id}' targets unknown door "
+                    f"'{plate.target_id}'."
+                )
 
     def _load_platform_tile_collisions(self):
         tile_types = {}
@@ -186,6 +241,17 @@ class TiledMap:
 
     def update(self, dt):
         pass
+
+    def update_mechanisms(self, actors):
+        actors = tuple(actors)
+        for plate in self.pressure_plates:
+            plate.update(actors)
+        for object_id, door in self.doors.items():
+            activated = any(
+                plate.is_pressed and plate.target_id == object_id
+                for plate in self.pressure_plates
+            )
+            door.update(activated, actors)
 
     def draw(self, camera=None):
         for layer, values in self.tile_layers:
@@ -259,6 +325,17 @@ class TiledMap:
                     draw_height,
                 )
 
+        for door in self.doors.values():
+            door.draw(camera)
+        for plate in self.pressure_plates:
+            plate.draw(camera)
+
+    @property
+    def solid_rects(self):
+        return self.collision_rects + self.platform_rects + [
+            door.rect for door in self.doors.values() if not door.is_open
+        ]
+
     def _find_tileset(self, gid):
         for tileset in reversed(self.tilesets):
             if gid >= tileset['firstgid']:
@@ -271,9 +348,7 @@ class TiledMap:
     def is_supported(self, x, y, width, tolerance=1.0):
         left = x - width / 2
         right = x + width / 2
-        for rect_left, rect_bottom, rect_right, rect_top in (
-            self.collision_rects + self.platform_rects
-        ):
+        for rect_left, rect_bottom, rect_right, rect_top in self.solid_rects:
             if abs(y - rect_top) <= tolerance and \
                     right > rect_left and left < rect_right:
                 return True
@@ -281,7 +356,7 @@ class TiledMap:
 
     def move_actor(self, x, y, width, height, dx, dy):
         half_width = width / 2
-        solid_rects = self.collision_rects + self.platform_rects
+        solid_rects = self.solid_rects
 
         if dx:
             next_x = x + dx

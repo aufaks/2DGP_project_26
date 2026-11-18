@@ -155,18 +155,20 @@ RECORDING → EMPTY                 # 프레임 없는 기록 취소
 | `Terrain` | Tile Layer | 플랫폼/지형 이미지 |
 | `Collision` | Object Layer | 충돌하는 사각형 오브젝트 |
 | `Markers` | Object Layer | `PlayerSpawn` 포인트 등 위치 마커 |
+| `Mechanisms` | Object Layer | `Door`, `PressurePlate` 오브젝트 |
 
 - 플레이어 시작 지점은 `Markers` 레이어의 오브젝트 이름을 정확히 `PlayerSpawn`으로 지정한다. 맵당 하나만 허용한다. 누락 시 실행 코드는 기본 시작 좌표를 사용한다.
 - 지형 그림과 충돌은 별도 데이터다. 플랫폼을 그린 뒤 `Collision` 레이어에 회전하지 않은 사각형을 추가해야 캐릭터가 충돌한다. 오브젝트 좌표를 좌상단·Y-아래 방향의 맵 픽셀 좌표로 작성하면 로더가 Pico2D 좌표로 변환한다.
+- `Mechanisms` 레이어의 회전하지 않은 사각형에는 Tiled 클래스 `Door` 또는 `PressurePlate`를 지정한다. 두 종류 모두 문자열 `object_id` 속성이 필요하며, 발판에는 연결할 문의 `target_id`도 지정한다. 문은 연결된 발판 중 하나라도 눌리면 열리고, 캐릭터가 문에 겹쳐 있는 동안은 열린 상태를 유지한다.
 
 ### 지원 범위와 제작 절차
 
-현재 로더는 직교·유한 맵, 이미지 아틀라스, 타일 레이어와 충돌 사각형을 지원한다. 무한 맵, Base64/압축 데이터, 그룹 레이어, 타일 오브젝트 충돌, 대각선/육각 타일 변환은 지원하지 않으며, 오류를 표시한다. 편집 중인 맵은 Tiled에서 JSON으로 저장한다.
+현재 로더는 직교·유한 맵, 이미지 아틀라스, 타일 레이어, 충돌 사각형 및 문/발판 오브젝트를 지원한다. 무한 맵, Base64/압축 데이터, 그룹 레이어, 타일 오브젝트 충돌, 대각선/육각 타일 변환은 지원하지 않으며, 오류를 표시한다. 편집 중인 맵은 Tiled에서 JSON으로 저장한다.
 
 1. Tiled에서 프로젝트의 `maps/stage_01.tmj`를 열거나 새로 만든다.
 2. 맵 방향을 `Orthogonal`, 맵 크기를 finite로 설정하고, 프로젝트에서 사용하는 타일 크기를 지정한다.
 3. 타일셋을 `.tsj`로 저장하고 타일 이미지 경로가 맵 파일과 올바르게 연결되는지 확인한다.
-4. `Background`, `Terrain`, `Collision`, `Markers` 레이어를 만든다. 충돌 레이어에는 사각형 오브젝트, 마커 레이어에는 이름이 `PlayerSpawn`인 포인트를 둔다.
+4. `Background`, `Terrain`, `Collision`, `Markers`, `Mechanisms` 레이어를 만든다. 충돌 레이어에는 사각형 오브젝트, 마커 레이어에는 이름이 `PlayerSpawn`인 포인트를 둔다. 문과 발판은 `Mechanisms` 레이어에 각각 `Door`, `PressurePlate` 클래스로 추가하고, 문자열 `object_id`/`target_id` 속성으로 연결한다.
 5. `.tmj`를 저장한 뒤 프로젝트를 실행한다. 시작 단계에서는 `main.py`가 `maps/stage_01.tmj`를 로드하며, 맵 이미지와 충돌 정보가 함께 적용된다.
 
 `maps/stage_01.tmj`, `maps/tileset.tsj`, `maps/tileset.png`는 바로 실행하고 편집할 수 있는 시작 맵이다. Tiled는 별도 설치가 필요한 편집 도구지만, 맵 재생에는 추가 Python 의존성이 없다.
