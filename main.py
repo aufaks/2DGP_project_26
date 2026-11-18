@@ -12,10 +12,12 @@ from echo_slot_ui import draw_echo_slot_ui, load_echo_slot_font
 from hold_action_effect import draw_hold_action_effect
 from hold_key_tracker import HoldKeyTracker
 from recording_effect import draw_recording_effect
+from stage_background import StageBackground
 from tiled_map import TiledMap
 
 player = None
 level_map = None
+stage_background = None
 FIXED_DT = 1 / 60
 HOLD_DURATION_SECONDS = 2.0
 action_recorder = ActionRecorder(fixed_dt=FIXED_DT)
@@ -92,7 +94,7 @@ def handle_events():
 
 
 def reset_world():
-    global player, level_map, active_echo, pending_player_restore
+    global player, level_map, stage_background, active_echo, pending_player_restore
     global saved_player_position, hold_action_effect
 
     map_path = os.path.join(
@@ -101,6 +103,11 @@ def reset_world():
         'stage_01.tmj',
     )
     level_map = TiledMap(map_path)
+    stage_background = StageBackground(
+        level_map.pixel_width,
+        level_map.pixel_height,
+    )
+    game_world.add_object(stage_background, 0)
     game_world.add_object(level_map, 0)
 
     action_recorder.reset()
