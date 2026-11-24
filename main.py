@@ -14,6 +14,7 @@ from recording_effect import draw_recording_effect
 from stage_background import StageBackground
 from stage_map import StageMap
 from stage_progress import next_stage, stage_path
+from title_screen import TitleScreen
 
 player = None
 level_map = None
@@ -33,6 +34,8 @@ echo_slot_font = None
 world_number = 1
 stage_number = 1
 game_complete = False
+screen = 'game'
+title_screen = None
 
 
 def stop_recording():
@@ -45,10 +48,10 @@ def stop_recording():
 
 def handle_events():
     global running, active_echo, pending_player_restore, saved_player_position
-    global hold_action_effect
+    global hold_action_effect, screen, world_number, stage_number, game_complete
 
     event_list = get_events()
-    for key in hold_key_tracker.ready_keys(time.perf_counter()):
+    for key in hold_key_tracker.ready_keys(time.perf_counter()) if screen == 'game' else ():
         if key == SDLK_c and player is not None:
             saved_player_position = player.capture_position()
             hold_action_effect = ('save', time.perf_counter())
@@ -64,6 +67,15 @@ def handle_events():
     for event in event_list:
         if event.type == SDL_QUIT:
             running = False
+        elif screen == 'title':
+            action = title_screen.handle_event(event)
+            if action == 'start':
+                world_number, stage_number = 1, 1
+                game_complete = False
+                reset_world()
+                screen = 'game'
+            elif action == 'quit':
+                running = False
         elif event.type == SDL_KEYDOWN and event.key == SDLK_ESCAPE:
             running = False
         elif event.type == SDL_KEYDOWN and event.key == SDLK_r:
@@ -186,6 +198,10 @@ def render_world():
     global hold_action_effect
 
     clear_canvas()
+    if screen == 'title':
+        title_screen.draw()
+        update_canvas()
+        return
     game_world.render(camera)
     if action_recorder.is_recording:
         draw_recording_effect(camera.width, camera.height)
@@ -208,11 +224,12 @@ def render_world():
     update_canvas()
 
 def main():
-    global running, echo_slot_font
+    global running, echo_slot_font, screen, title_screen
     running = True
     open_canvas(1280, 720)
     echo_slot_font = load_echo_slot_font()
-    reset_world()
+    title_screen = TitleScreen()
+    screen = 'title'
     last_frame_time = time.perf_counter()
     accumulator = 0.0
     while running:
@@ -220,9 +237,11 @@ def main():
         now = time.perf_counter()
         accumulator = min(accumulator + min(now - last_frame_time, 0.1), 0.1)
         last_frame_time = now
-        while accumulator >= FIXED_DT:
+        while screen == 'game' and accumulator >= FIXED_DT:
             update_world(FIXED_DT)
             accumulator -= FIXED_DT
+        if screen == 'title':
+            accumulator = 0.0
         render_world()
         delay(0.01)
     close_canvas()
