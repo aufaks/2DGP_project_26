@@ -4,12 +4,12 @@ from pico2d import load_image
 
 
 class StageBackground:
-    def __init__(self, width, height):
+    def __init__(self, width, height, image_path=None):
         sprite_dir = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             'sprite',
         )
-        self.image = load_image(os.path.join(sprite_dir, 'Background_Stage.png'))
+        self.image = load_image(str(image_path or os.path.join(sprite_dir, 'Background_Stage.png')))
         self.width = width
         self.height = height
 

@@ -7,7 +7,7 @@ from action_recorder import ActionRecorder
 from echo_character import EchoCharacter
 from game_commands import PlayerCommand
 from main_character import MainCharacter
-from tiled_map import TiledMap
+from stage_map import StageMap
 
 
 class FakeImage:
@@ -103,13 +103,10 @@ class ActionRecorderTests(unittest.TestCase):
 
     def test_echo_replays_the_same_commands_with_map_collisions(self):
         project_root = Path(__file__).resolve().parents[1]
-        map_path = project_root / 'maps' / 'stage_01.tmj'
-        map_image = patch('tiled_map.load_image', return_value=FakeImage())
-        map_image.start()
-        self.addCleanup(map_image.stop)
-        tiled_map = TiledMap(map_path)
+        map_path = project_root / 'stages' / 'world_01' / 'stage_01.json'
+        stage_map = StageMap(map_path)
 
-        player = MainCharacter(x=200, y=256, collision_map=tiled_map)
+        player = MainCharacter(x=200, y=256, collision_map=stage_map)
         frames = (
             [PlayerCommand(move_x=1, jump_pressed=True)]
             + [PlayerCommand(move_x=1)] * 71
@@ -117,7 +114,7 @@ class ActionRecorderTests(unittest.TestCase):
         echo = EchoCharacter(
             player.capture_pose(),
             frames,
-            tiled_map,
+            stage_map,
             player.sprite_images,
         )
 

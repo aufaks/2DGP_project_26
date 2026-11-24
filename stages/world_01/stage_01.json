@@ -1,0 +1,9 @@
+{
+  "size": [1280, 720],
+  "background": "../../sprite/stage_01_background.png",
+  "player_spawn": [120, 136],
+  "collision_rects": [[0, 0, 1280, 136]],
+  "slopes": [],
+  "images": [],
+  "objects": []
+}

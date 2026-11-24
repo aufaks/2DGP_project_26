@@ -1,4 +1,3 @@
-import os
 import time
 
 from pico2d import *
@@ -13,7 +12,8 @@ from hold_action_effect import draw_hold_action_effect
 from hold_key_tracker import HoldKeyTracker
 from recording_effect import draw_recording_effect
 from stage_background import StageBackground
-from tiled_map import TiledMap
+from stage_map import StageMap
+from stage_progress import next_stage, stage_path
 
 player = None
 level_map = None
@@ -28,8 +28,11 @@ hotkey_keys_down = set()
 hold_key_tracker = HoldKeyTracker(HOLD_DURATION_SECONDS)
 hold_action_effect = None
 HOLD_EFFECT_DURATION = 0.65
-camera = Camera(1280, 720, zoom=0.75)
+camera = Camera(1280, 720, zoom=1.0)
 echo_slot_font = None
+world_number = 1
+stage_number = 1
+game_complete = False
 
 
 def stop_recording():
@@ -63,6 +66,8 @@ def handle_events():
             running = False
         elif event.type == SDL_KEYDOWN and event.key == SDLK_ESCAPE:
             running = False
+        elif event.type == SDL_KEYDOWN and event.key == SDLK_r:
+            reset_world()
         elif event.type == SDL_KEYDOWN and event.key in (SDLK_c, SDLK_z):
             hold_key_tracker.key_down(event.key, time.perf_counter())
         elif event.type == SDL_KEYUP and event.key in (SDLK_c, SDLK_z):
@@ -104,18 +109,15 @@ def reset_world():
     global player, level_map, stage_background, active_echo, pending_player_restore
     global saved_player_position, hold_action_effect
 
-    map_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        'maps',
-        'stage_01.tmj',
-    )
-    level_map = TiledMap(map_path)
+    game_world.world = [[] for _ in range(6)]
+    level_map = StageMap(stage_path(world_number, stage_number))
     stage_background = StageBackground(
         level_map.pixel_width,
         level_map.pixel_height,
+        level_map.background_path,
     )
     game_world.add_object(stage_background, 0)
-    game_world.add_object(level_map, 0)
+    game_world.add_object(level_map, 1)
 
     action_recorder.reset()
     active_echo = None
@@ -136,6 +138,7 @@ def reset_world():
 
 def update_world(dt):
     global active_echo, pending_player_restore
+    global world_number, stage_number, game_complete
 
     if player is not None:
         command = player.command_for_tick()
@@ -166,6 +169,18 @@ def update_world(dt):
             level_map.pixel_width,
             level_map.pixel_height,
         )
+        for stage_exit in level_map.stage_exits:
+            left, bottom, right, top = stage_exit.rect
+            al, ab, ar, at = player.get_collision_box()
+            if ar <= left or al >= right or at <= bottom or ab >= top:
+                continue
+            following = next_stage(world_number, stage_number)
+            if following is None:
+                game_complete = True
+            elif stage_path(*following).is_file():
+                world_number, stage_number = following
+                reset_world()
+            break
 
 def render_world():
     global hold_action_effect
