@@ -156,6 +156,21 @@
                  "width":96,
                  "x":1024,
                  "y":192
+                },
+                {
+                 "height":48,
+                 "id":5,
+                 "name":"Echo Device",
+                 "properties":[
+                        {"name":"object_id", "type":"string", "value":"echo_device_01"},
+                        {"name":"interaction_range", "type":"float", "value":64}
+                    ],
+                 "rotation":0,
+                 "type":"EchoDevice",
+                 "visible":true,
+                 "width":48,
+                 "x":352,
+                 "y":1392
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -163,8 +178,8 @@
          "x":0,
          "y":0
         }],
- "nextlayerid":5,
- "nextobjectid":3,
+ "nextlayerid":6,
+ "nextobjectid":6,
  "orientation":"orthogonal",
  "renderorder":"right-down",
  "tiledversion":"1.12.2",
@@ -173,6 +188,14 @@
         {
          "firstgid":1,
          "source":"tileset.tsj"
+        },
+        {
+         "firstgid":7,
+         "source":"sky_ruins.tsj"
+        },
+        {
+         "firstgid":19,
+         "source":"sky_platforms.tsj"
         }],
  "tilewidth":32,
  "type":"map",

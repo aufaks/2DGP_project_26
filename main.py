@@ -67,9 +67,16 @@ def handle_events():
             hold_key_tracker.key_down(event.key, time.perf_counter())
         elif event.type == SDL_KEYUP and event.key in (SDLK_c, SDLK_z):
             hold_key_tracker.key_up(event.key)
+        elif event.type == SDL_KEYDOWN and event.key == SDLK_e:
+            if event.key not in hotkey_keys_down:
+                hotkey_keys_down.add(event.key)
+                if level_map is not None and player is not None:
+                    level_map.collect_echo_device(player)
         elif event.type == SDL_KEYDOWN and event.key in (SDLK_i, SDLK_j):
             if event.key not in hotkey_keys_down:
                 hotkey_keys_down.add(event.key)
+                if level_map is None or not level_map.echo_unlocked:
+                    continue
                 if event.key == SDLK_i and active_echo is None:
                     if action_recorder.is_recording:
                         stop_recording()
@@ -116,6 +123,7 @@ def reset_world():
     saved_player_position = None
     hold_action_effect = None
     hold_key_tracker.reset()
+    hotkey_keys_down.clear()
 
     spawn_x, spawn_y = level_map.player_spawn or (400.0, 64.0)
     player = main_character.MainCharacter(
@@ -178,23 +186,32 @@ def render_world():
             )
         else:
             hold_action_effect = None
-    draw_echo_slot_ui(action_recorder, active_echo, echo_slot_font)
+    if level_map is not None and player is not None:
+        level_map.draw_interaction_ui(player, echo_slot_font, camera)
+        if level_map.echo_unlocked:
+            draw_echo_slot_ui(action_recorder, active_echo, echo_slot_font)
     update_canvas()
 
-running = True
-open_canvas(1280, 720)
-echo_slot_font = load_echo_slot_font()
-reset_world()
-last_frame_time = time.perf_counter()
-accumulator = 0.0
-while running:
-    handle_events()
-    now = time.perf_counter()
-    accumulator = min(accumulator + min(now - last_frame_time, 0.1), 0.1)
-    last_frame_time = now
-    while accumulator >= FIXED_DT:
-        update_world(FIXED_DT)
-        accumulator -= FIXED_DT
-    render_world()
-    delay(0.01)
-close_canvas()
+def main():
+    global running, echo_slot_font
+    running = True
+    open_canvas(1280, 720)
+    echo_slot_font = load_echo_slot_font()
+    reset_world()
+    last_frame_time = time.perf_counter()
+    accumulator = 0.0
+    while running:
+        handle_events()
+        now = time.perf_counter()
+        accumulator = min(accumulator + min(now - last_frame_time, 0.1), 0.1)
+        last_frame_time = now
+        while accumulator >= FIXED_DT:
+            update_world(FIXED_DT)
+            accumulator -= FIXED_DT
+        render_world()
+        delay(0.01)
+    close_canvas()
+
+
+if __name__ == '__main__':
+    main()

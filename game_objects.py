@@ -11,6 +11,46 @@ def _screen_rect(rect, camera):
     return round(left), round(bottom), round(right), round(top)
 
 
+class EchoDevice:
+    """Non-solid pickup that unlocks echo recording and playback."""
+
+    def __init__(self, object_id, rect, interaction_range=64.0):
+        self.object_id = object_id
+        self.rect = rect
+        self.interaction_range = interaction_range
+        self.collected = False
+
+    def can_collect(self, actor):
+        if self.collected:
+            return False
+        left, bottom, right, top = self.rect
+        al, ab, ar, at = actor.get_collision_box()
+        dx, dy = max(left - ar, al - right, 0), max(bottom - at, ab - top, 0)
+        return dx * dx + dy * dy <= self.interaction_range ** 2
+
+    def collect(self, actor):
+        if not self.can_collect(actor):
+            return False
+        self.collected = True
+        return True
+
+    def draw(self, camera=None):
+        if self.collected:
+            return
+        left, bottom, right, top = _screen_rect(self.rect, camera)
+        w, h = right - left, top - bottom
+        draw_rectangle(left, bottom, right, bottom + h * .22,
+                       114, 119, 145, filled=True)
+        draw_rectangle(left + w * .12, bottom + h * .22,
+                       right - w * .12, bottom + h * .34,
+                       225, 220, 202, filled=True)
+        draw_rectangle(left + w * .20, bottom + h * .49,
+                       right - w * .20, top, 28, 85, 112, filled=True)
+        draw_rectangle(left + w * .30, bottom + h * .58,
+                       right - w * .30, top - h * .09,
+                       77, 229, 246, filled=True)
+
+
 class Door:
     def __init__(self, object_id, rect):
         self.object_id = object_id

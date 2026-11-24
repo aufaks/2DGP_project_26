@@ -4,7 +4,7 @@ from pathlib import Path
 
 from pico2d import load_image
 
-from game_objects import Door, PressurePlate
+from game_objects import Door, EchoDevice, PressurePlate
 
 
 _GID_MASK = 0x0FFFFFFF
@@ -37,6 +37,9 @@ class TiledMap:
         self.player_spawn = None
         self.doors = {}
         self.pressure_plates = []
+        self.echo_devices = []
+        self.echo_unlocked = False
+        self.echo_notice_seconds = 0.0
         self._mechanism_object_ids = set()
 
         self.tilesets = self._load_tilesets()
@@ -176,6 +179,11 @@ class TiledMap:
 
         if object_type == 'Door':
             self.doors[object_id] = Door(object_id, rect)
+        elif object_type == 'EchoDevice':
+            interaction_range = properties.get('interaction_range', 64.0)
+            if not isinstance(interaction_range, (float, int)) or interaction_range <= 0:
+                raise ValueError('Echo device interaction_range must be positive.')
+            self.echo_devices.append(EchoDevice(object_id, rect, interaction_range))
         elif object_type == 'PressurePlate':
             target_id = properties.get('target_id')
             if not isinstance(target_id, str) or not target_id:
@@ -258,7 +266,30 @@ class TiledMap:
                 self.platform_rects.append(rect)
 
     def update(self, dt):
-        pass
+        self.echo_notice_seconds = max(0.0, self.echo_notice_seconds - dt)
+
+    def collect_echo_device(self, actor):
+        if self.echo_unlocked:
+            return False
+        for device in self.echo_devices:
+            if device.collect(actor):
+                self.echo_unlocked = True
+                self.echo_notice_seconds = 4.0
+                return True
+        return False
+
+    def draw_interaction_ui(self, actor, font, camera):
+        if self.echo_notice_seconds > 0:
+            font.draw(30, camera.height - 35,
+                      '메아리 장치 획득!  I: 행동 기록 / J: 분신 재생',
+                      (215, 250, 255))
+        if self.echo_unlocked:
+            return
+        for device in self.echo_devices:
+            if device.can_collect(actor):
+                left, _, right, top = device.rect
+                x, y = camera.world_to_screen((left + right) / 2, top + 18)
+                font.draw(x - 45, y, '[E] 장치 획득', (245, 250, 255))
 
     def update_mechanisms(self, actors):
         actors = tuple(actors)
@@ -347,6 +378,8 @@ class TiledMap:
             door.draw(camera)
         for plate in self.pressure_plates:
             plate.draw(camera)
+        for device in self.echo_devices:
+            device.draw(camera)
 
     @property
     def solid_rects(self):

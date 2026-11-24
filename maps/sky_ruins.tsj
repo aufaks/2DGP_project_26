@@ -1,0 +1,29 @@
+{
+  "columns": 6,
+  "image": "sky_ruins.png",
+  "imageheight": 64,
+  "imagewidth": 192,
+  "margin": 0,
+  "name": "REPLAY_SkyRuins_Exterior",
+  "spacing": 0,
+  "tilecount": 12,
+  "tiledversion": "1.11.0",
+  "tileheight": 32,
+  "tilewidth": 32,
+  "type": "tileset",
+  "version": "1.10",
+  "tiles": [
+    {"id": 0, "type": "Stone", "properties": [{"name": "label", "type": "string", "value": "Grass platform left"}]},
+    {"id": 1, "type": "Stone", "properties": [{"name": "label", "type": "string", "value": "Grass platform middle"}]},
+    {"id": 2, "type": "Stone", "properties": [{"name": "label", "type": "string", "value": "Grass platform right"}]},
+    {"id": 3, "type": "Stone", "properties": [{"name": "label", "type": "string", "value": "Ruins masonry"}]},
+    {"id": 4, "type": "Stone", "properties": [{"name": "label", "type": "string", "value": "Cracked masonry"}]},
+    {"id": 5, "type": "Stone", "properties": [{"name": "label", "type": "string", "value": "Cyan circuit masonry"}]},
+    {"id": 6, "type": "Sky", "properties": [{"name": "label", "type": "string", "value": "Pillar capital (decoration)"}]},
+    {"id": 7, "type": "Sky", "properties": [{"name": "label", "type": "string", "value": "Pillar shaft (decoration)"}]},
+    {"id": 8, "type": "Sky", "properties": [{"name": "label", "type": "string", "value": "Pillar base (decoration)"}]},
+    {"id": 9, "type": "Sky", "properties": [{"name": "label", "type": "string", "value": "Hanging ivy (decoration)"}]},
+    {"id": 10, "type": "Sky", "properties": [{"name": "label", "type": "string", "value": "Grass and flowers (decoration)"}]},
+    {"id": 11, "type": "Sky", "properties": [{"name": "label", "type": "string", "value": "Crystal pedestal (decoration only)"}]}
+  ]
+}
