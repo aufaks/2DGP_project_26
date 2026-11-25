@@ -11,6 +11,7 @@ from echo_character import EchoCharacter
 from echo_slot_ui import draw_echo_slot_ui, load_echo_slot_font
 from hold_action_effect import draw_hold_action_effect
 from hold_key_tracker import HoldKeyTracker
+from pause_menu import PauseMenu
 from recording_effect import draw_recording_effect
 from stage_background import StageBackground
 from stage_map import StageMap
@@ -40,6 +41,7 @@ game_complete = False
 screen = 'game'
 title_screen = None
 stage_select = None
+pause_menu = None
 
 
 def maximize_game_window():
@@ -81,6 +83,20 @@ def start_recording():
     player._pending_command = None
     player._jump_pressed = False
     game_world.add_object(recording_echo, 3)
+
+
+def pause_game():
+    global screen
+
+    for actor in (player, active_echo, recording_echo):
+        if actor is not None:
+            actor.pressed_keys.clear()
+            actor._pending_command = None
+            actor._jump_pressed = False
+    hold_key_tracker.reset()
+    hotkey_keys_down.clear()
+    pause_menu.selected = 0
+    screen = 'pause'
 
 
 def handle_events():
@@ -126,6 +142,21 @@ def handle_events():
                     game_complete = False
                     reset_world()
                     screen = 'game'
+        elif screen == 'pause':
+            action = pause_menu.handle_event(event)
+            if action == 'continue':
+                screen = 'game'
+            elif action == 'restart':
+                reset_world()
+                screen = 'game'
+            elif action == 'title':
+                screen = 'title'
+        elif (
+            screen == 'game'
+            and event.type == SDL_KEYDOWN
+            and event.key == SDLK_ESCAPE
+        ):
+            pause_game()
         elif event.type == SDL_KEYDOWN and event.key == SDLK_ESCAPE:
             stage_select.show_stages(world_number)
             stage_select.stage = stage_number
@@ -208,6 +239,9 @@ def update_world(dt):
     global active_echo
     global world_number, stage_number, game_complete, screen
 
+    if screen != 'game':
+        return
+
     recording_finished = False
     if recording_echo is not None:
         command = recording_echo.command_for_tick()
@@ -270,6 +304,10 @@ def render_world():
         update_canvas()
         return
     game_world.render(camera)
+    if screen == 'pause':
+        pause_menu.draw()
+        update_canvas()
+        return
     if action_recorder.is_recording:
         draw_recording_effect(camera.width, camera.height)
     if hold_action_effect is not None:
@@ -292,12 +330,14 @@ def render_world():
 
 def main():
     global running, echo_slot_font, screen, title_screen, stage_select
+    global pause_menu
     running = True
     open_canvas(1280, 720)
     maximize_game_window()
     echo_slot_font = load_echo_slot_font()
     title_screen = TitleScreen()
     stage_select = StageSelect()
+    pause_menu = PauseMenu()
     screen = 'title'
     last_frame_time = time.perf_counter()
     accumulator = 0.0
