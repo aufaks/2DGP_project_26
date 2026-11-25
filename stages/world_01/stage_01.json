@@ -1,6 +1,6 @@
 {
   "size": [1280, 720],
-  "background": "../../sprite/stage_01_background.png",
+  "background": "../../sprite/stage_01_refined_background.png",
   "player_spawn": [120, 149],
   "collision_rects": [
     [0, 0, 240, 149],
