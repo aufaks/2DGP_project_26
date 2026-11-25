@@ -2,8 +2,8 @@ import os
 
 from pico2d import (
     SDL_KEYDOWN, SDL_MOUSEBUTTONDOWN, SDL_MOUSEMOTION, SDLK_DOWN,
-    SDLK_ESCAPE, SDLK_RETURN, SDLK_SPACE, SDLK_UP, draw_rectangle,
-    load_font, load_image,
+    SDLK_ESCAPE, SDLK_RETURN, SDLK_SPACE, SDLK_UP,
+    load_image,
 )
 
 
@@ -14,18 +14,12 @@ class TitleScreen:
     BUTTON_RIGHT = 1212
     BUTTON_HEIGHT = 52
     BUTTON_BOTTOMS = (154, 88)
-    LABELS = ('게임 시작', '종료')
-
     def __init__(self):
         self.background = load_image(os.path.join('sprite', 'title_screen.png'))
-        fonts_dir = os.path.join(os.environ.get('WINDIR', r'C:\Windows'), 'Fonts')
-        font_path = os.path.join(fonts_dir, 'malgun.ttf')
-        if not os.path.isfile(font_path):
-            font_path = os.path.join(fonts_dir, 'arial.ttf')
-            self.labels = ('START', 'QUIT')
-        else:
-            self.labels = self.LABELS
-        self.font = load_font(font_path, 25)
+        self.buttons = (
+            load_image(os.path.join('sprite', 'title_button_0.png')),
+            load_image(os.path.join('sprite', 'title_button_1.png')),
+        )
         self.selected = 0
 
     def button_at(self, x, y):
@@ -58,12 +52,8 @@ class TitleScreen:
                              self.WIDTH, self.HEIGHT)
         for index, bottom in enumerate(self.BUTTON_BOTTOMS):
             selected = index == self.selected
-            fill = (21, 40, 88) if selected else (46, 68, 113)
-            draw_rectangle(self.BUTTON_LEFT, bottom, self.BUTTON_RIGHT,
-                           bottom + self.BUTTON_HEIGHT, *fill, filled=True)
-            if selected:
-                draw_rectangle(self.BUTTON_LEFT, bottom, self.BUTTON_LEFT + 5,
-                               bottom + self.BUTTON_HEIGHT, 84, 232, 242,
-                               filled=True)
-            self.font.draw(self.BUTTON_LEFT + 27, bottom + 15,
-                           self.labels[index], (246, 248, 255))
+            button = self.buttons[index]
+            button.opacify(1.0 if selected else 0.68)
+            button.draw((self.BUTTON_LEFT + self.BUTTON_RIGHT) / 2,
+                        bottom + self.BUTTON_HEIGHT / 2, 244, 82)
+            button.opacify(1.0)
