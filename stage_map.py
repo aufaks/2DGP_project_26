@@ -1,9 +1,11 @@
 from pathlib import Path
 import json
 
-from pico2d import load_image, draw_rectangle
+from pico2d import draw_circle, draw_line, draw_rectangle, load_image
+from pico2d import pico2d as pico2d_core
+from sdl2 import SDL_BLENDMODE_BLEND, SDL_SetRenderDrawBlendMode
 
-from game_objects import Door, EchoDevice, PressurePlate, StageExit
+from game_objects import Door, EchoDevice, EchoPlatform, PressurePlate, StageExit
 
 
 class StageMap:
@@ -20,15 +22,27 @@ class StageMap:
         self.platform_rects = []
         self.slope_tiles = [tuple(slope) for slope in data.get('slopes', [])]
         self.doors = {}
+        self.echo_platforms = {}
         self.pressure_plates = []
         self.echo_devices = []
         self.stage_exits = []
         self.echo_notice_seconds = 0.0
+        self.animation_time = 0.0
         self.images = []
         for item in data.get('images', []):
             image = load_image(str((self.path.parent / item['path']).resolve()))
             self.images.append((image, tuple(item['rect'])))
         ids = set()
+        for item in data.get('platforms', []):
+            object_id = item['id']
+            if object_id in ids:
+                raise ValueError(f'Duplicate stage object id: {object_id}')
+            ids.add(object_id)
+            if item.get('type') == 'EchoPlatform':
+                self.echo_platforms[object_id] = EchoPlatform(
+                    object_id, item['rect'])
+            else:
+                raise ValueError(f"Unknown platform type: {item.get('type')}")
         for item in data.get('objects', []):
             object_id = item['id']
             if object_id in ids:
@@ -42,18 +56,24 @@ class StageMap:
                     item.get('latch', False), item.get('signal_marks', 0))
             elif kind == 'PressurePlate':
                 self.pressure_plates.append(
-                    PressurePlate(object_id, item['target_id'], rect))
+                    PressurePlate(
+                        object_id, item['target_id'], rect,
+                        style=item.get('style', 'standard'),
+                        requires_echo=item.get('requires_echo', False)))
             elif kind == 'EchoDevice':
                 self.echo_devices.append(EchoDevice(
                     object_id, rect, item.get('interaction_range', 64)))
             elif kind == 'StageExit':
-                self.stage_exits.append(StageExit(object_id, rect))
+                self.stage_exits.append(StageExit(
+                    object_id, rect, item.get('style', 'arch')))
             else:
                 raise ValueError(f'Unknown stage object type: {kind}')
         for plate in self.pressure_plates:
-            if plate.target_id not in self.doors:
-                raise ValueError(f'Unknown door: {plate.target_id}')
-            plate.signal_marks = self.doors[plate.target_id].signal_marks
+            if plate.target_id not in self.doors and \
+                    plate.target_id not in self.echo_platforms:
+                raise ValueError(f'Unknown pressure plate target: {plate.target_id}')
+            if plate.target_id in self.doors:
+                plate.signal_marks = self.doors[plate.target_id].signal_marks
         self.echo_unlocked = not self.echo_devices
         self.interact_prompt = None
         if data.get('objects'):
@@ -73,7 +93,10 @@ class StageMap:
                 stage_exit.image = assets['stage_exit']
 
     def update(self, dt):
+        self.animation_time += dt
         self.echo_notice_seconds = max(0.0, self.echo_notice_seconds - dt)
+        for stage_exit in self.stage_exits:
+            stage_exit.update(dt)
 
     def collect_echo_device(self, actor):
         if self.echo_unlocked:
@@ -97,10 +120,18 @@ class StageMap:
                     0, '', x, y, camera.transform_size(76),
                     camera.transform_size(36))
 
-    def update_mechanisms(self, actors):
+    def update_mechanisms(self, actors, dt=1 / 60):
         actors = tuple(actors)
         for plate in self.pressure_plates:
             plate.update(actors)
+        for object_id, platform in self.echo_platforms.items():
+            activated = any(plate.is_pressed and plate.target_id == object_id
+                            for plate in self.pressure_plates)
+            platform.update(activated, dt)
+        self.platform_rects = [
+            platform.rect for platform in self.echo_platforms.values()
+            if platform.active
+        ]
         for object_id, door in self.doors.items():
             pressed = sum(plate.is_pressed and plate.target_id == object_id
                           for plate in self.pressure_plates)
@@ -114,16 +145,86 @@ class StageMap:
                 x, y = camera.world_to_screen(x, y)
                 width, height = camera.transform_size(width), camera.transform_size(height)
             image.draw(x, y, width, height)
-        for rect in self.collision_rects if not self.images else ():
-            left, bottom, right, top = rect
-            if camera is not None:
-                left, bottom = camera.world_to_screen(left, bottom)
-                right, top = camera.world_to_screen(right, top)
-            draw_rectangle(left, bottom, right, top, 60, 104, 112, filled=True)
-            draw_rectangle(left, top - 9, right, top, 223, 197, 146, filled=True)
+        if not self.images:
+            for rect in self.collision_rects:
+                self._draw_ruin_geometry(rect, camera)
         for obj in (*self.doors.values(), *self.pressure_plates,
                     *self.echo_devices, *self.stage_exits):
             obj.draw(camera)
+        for platform in self.echo_platforms.values():
+            platform.draw(camera)
+
+    def _draw_ruin_geometry(self, rect, camera):
+        left, bottom, right, top = rect
+        if camera is not None:
+            left, bottom = camera.world_to_screen(left, bottom)
+            right, top = camera.world_to_screen(right, top)
+            scale = camera.zoom
+        else:
+            scale = 1.0
+        width, height = right - left, top - bottom
+        if width <= 0 or height <= 0:
+            return
+
+        is_wall = height > width * .68
+        draw_rectangle(left, bottom, right, top, 44, 57, 91, filled=True)
+        if is_wall:
+            block_h, block_w = 42 * scale, 64 * scale
+            row, y = 0, bottom + 4 * scale
+            while y < top - 18 * scale:
+                offset = 0 if row % 2 == 0 else block_w / 2
+                draw_line(left, y, right, y, 71, 84, 119, 170)
+                x = left + offset
+                while x < right:
+                    if x > left + 2:
+                        draw_line(x, y, x, min(top, y + block_h),
+                                  67, 79, 110, 145)
+                    x += block_w
+                y += block_h
+                row += 1
+            draw_rectangle(left, bottom, right, bottom + 12 * scale,
+                           27, 37, 67, filled=True)
+            draw_rectangle(left, top - 11 * scale, right, top,
+                           165, 178, 202, filled=True)
+            draw_line(left + 5 * scale, top - 13 * scale,
+                      right - 3 * scale, top - 13 * scale,
+                      222, 211, 207, 210)
+            for x, y in ((left + width * .20, bottom + height * .30),
+                         (left + width * .72, bottom + height * .68)):
+                draw_circle(x, y, max(1, int(round(3.5 * scale))),
+                            81, 207, 192, 150, filled=True)
+                draw_line(x, y - 12 * scale, x, y - 4 * scale,
+                          86, 193, 184, 160)
+            return
+
+        top_h = min(22 * scale, height * .20)
+        draw_rectangle(left, bottom, right, bottom + height * .40,
+                       35, 46, 76, filled=True)
+        draw_rectangle(left + 3 * scale, bottom + height * .40,
+                       right - 2 * scale, top - top_h,
+                       62, 78, 116, filled=True)
+        draw_rectangle(left, top - top_h, right, top,
+                       183, 184, 199, filled=True)
+        draw_rectangle(left + 3 * scale, top - 5 * scale,
+                       right - 3 * scale, top - 2 * scale,
+                       225, 215, 201, filled=True)
+        draw_line(left + 4 * scale, top - top_h - 1 * scale,
+                  right - 3 * scale, top - top_h - 1 * scale,
+                  104, 123, 155, 220)
+        tile_w = 48 * scale
+        x, index = left + tile_w, 0
+        while x < right - 3 * scale:
+            seam_y = top - top_h + (3 if index % 2 else 7) * scale
+            draw_line(x, bottom + height * .40, x, seam_y,
+                      42, 57, 88, 145)
+            draw_line(x + 3 * scale, seam_y, x + tile_w * .60, seam_y,
+                      220, 205, 193, 150)
+            x += tile_w
+            index += 1
+        for x in (left + width * .22, left + width * .78):
+            draw_circle(x, bottom + height * .24,
+                        max(1, int(round(3 * scale))),
+                        60, 175, 184, 190, filled=True)
 
     @property
     def solid_rects(self):
@@ -240,7 +341,6 @@ class StageMap:
 
         landed = False
         hit_ceiling = False
-        hit_bottom = False
         if dy:
             next_y = y + dy
             for left, bottom, right, top in solid_rects:
@@ -266,11 +366,7 @@ class StageMap:
             if max_y < 0:
                 y = self.pixel_height / 2 - height / 2
                 hit_ceiling = dy > 0
-                hit_bottom = dy < 0
             else:
-                if next_y < 0:
-                    next_y = 0
-                    hit_bottom = dy < 0
                 if next_y > max_y:
                     next_y = max_y
                     hit_ceiling = dy > 0
@@ -281,6 +377,6 @@ class StageMap:
             min(max(x, half_width), max_x)
         max_y = self.pixel_height - height
         y = self.pixel_height / 2 - height / 2 if max_y < 0 else \
-            min(max(y, 0), max_y)
-        grounded = landed or hit_bottom or self.is_supported(x, y, width)
+            min(y, max_y)
+        grounded = landed or self.is_supported(x, y, width)
         return x, y, grounded, hit_ceiling

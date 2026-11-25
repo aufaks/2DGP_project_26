@@ -48,6 +48,20 @@ class StageMapTests(unittest.TestCase):
         self.assertEqual(len(stage.stage_exits), 1)
         self.assertIn(stage.doors['gate'].rect, stage.solid_rects)
 
+    def test_actor_can_fall_below_a_gap_in_the_map(self):
+        stage = StageMap.__new__(StageMap)
+        stage.pixel_width = 1280
+        stage.pixel_height = 720
+        stage.collision_rects = []
+        stage.platform_rects = []
+        stage.doors = {}
+        stage.slope_tiles = []
+
+        x, y, grounded, _ = stage.move_actor(120, 1, 36, 60, 0, -10)
+
+        self.assertEqual((x, y), (120, -9))
+        self.assertFalse(grounded)
+
 
 if __name__ == '__main__':
     unittest.main()

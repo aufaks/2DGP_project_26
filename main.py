@@ -9,6 +9,7 @@ from action_recorder import ActionRecorder
 from camera import Camera
 from echo_character import EchoCharacter
 from echo_slot_ui import draw_echo_slot_ui, load_echo_slot_font
+from game_over_effect import GameOverEffect
 from hold_action_effect import draw_hold_action_effect
 from hold_key_tracker import HoldKeyTracker
 from pause_menu import PauseMenu
@@ -33,6 +34,7 @@ hotkey_keys_down = set()
 hold_key_tracker = HoldKeyTracker(HOLD_DURATION_SECONDS)
 hold_action_effect = None
 HOLD_EFFECT_DURATION = 0.65
+GAME_OVER_DURATION = 1.5
 camera = Camera(1280, 720, zoom=1.0)
 echo_slot_font = None
 world_number = 1
@@ -42,6 +44,8 @@ screen = 'game'
 title_screen = None
 stage_select = None
 pause_menu = None
+game_over_effect = None
+game_over_elapsed = 0.0
 
 
 def maximize_game_window():
@@ -125,6 +129,8 @@ def handle_events():
     for event in event_list:
         if event.type == SDL_QUIT:
             running = False
+        elif screen == 'game_over':
+            continue
         elif screen == 'title':
             action = title_screen.handle_event(event)
             if action == 'start':
@@ -206,6 +212,7 @@ def handle_events():
 def reset_world():
     global player, level_map, stage_background, active_echo, recording_echo
     global saved_player_position, saved_echo_position, hold_action_effect
+    global game_over_elapsed
 
     game_world.world = [[] for _ in range(6)]
     level_map = StageMap(stage_path(world_number, stage_number))
@@ -223,6 +230,7 @@ def reset_world():
     saved_player_position = None
     saved_echo_position = None
     hold_action_effect = None
+    game_over_elapsed = 0.0
     hold_key_tracker.reset()
     hotkey_keys_down.clear()
 
@@ -238,7 +246,15 @@ def reset_world():
 def update_world(dt):
     global active_echo
     global world_number, stage_number, game_complete, screen
+    global game_over_elapsed
 
+    if screen == 'game_over':
+        game_over_elapsed += dt
+        if game_over_elapsed >= GAME_OVER_DURATION:
+            game_over_elapsed = 0.0
+            reset_world()
+            screen = 'game'
+        return
     if screen != 'game':
         return
 
@@ -251,6 +267,19 @@ def update_world(dt):
     if recording_finished:
         stop_recording()
 
+    if player is not None and player.get_collision_box()[3] < 0:
+        stop_recording()
+        for actor in (player, active_echo):
+            if actor is not None:
+                actor.pressed_keys.clear()
+                actor._pending_command = None
+                actor._jump_pressed = False
+        hold_key_tracker.reset()
+        hotkey_keys_down.clear()
+        game_over_elapsed = 0.0
+        screen = 'game_over'
+        return
+
     if active_echo is not None and active_echo.finished:
         game_world.remove_object(active_echo)
         active_echo = None
@@ -261,7 +290,7 @@ def update_world(dt):
             actors.append(active_echo)
         if recording_echo is not None:
             actors.append(recording_echo)
-        level_map.update_mechanisms(actors)
+        level_map.update_mechanisms(actors, dt)
 
     if player is not None and level_map is not None:
         camera_target = recording_echo or player
@@ -304,6 +333,14 @@ def render_world():
         update_canvas()
         return
     game_world.render(camera)
+    if screen == 'game_over':
+        game_over_effect.draw(
+            camera.width,
+            camera.height,
+            game_over_elapsed,
+        )
+        update_canvas()
+        return
     if screen == 'pause':
         pause_menu.draw()
         update_canvas()
@@ -330,7 +367,7 @@ def render_world():
 
 def main():
     global running, echo_slot_font, screen, title_screen, stage_select
-    global pause_menu
+    global pause_menu, game_over_effect
     running = True
     open_canvas(1280, 720)
     maximize_game_window()
@@ -338,6 +375,7 @@ def main():
     title_screen = TitleScreen()
     stage_select = StageSelect()
     pause_menu = PauseMenu()
+    game_over_effect = GameOverEffect()
     screen = 'title'
     last_frame_time = time.perf_counter()
     accumulator = 0.0
@@ -346,7 +384,7 @@ def main():
         now = time.perf_counter()
         accumulator = min(accumulator + min(now - last_frame_time, 0.1), 0.1)
         last_frame_time = now
-        while screen == 'game' and accumulator >= FIXED_DT:
+        while screen in ('game', 'game_over') and accumulator >= FIXED_DT:
             update_world(FIXED_DT)
             accumulator -= FIXED_DT
         if screen != 'game':
