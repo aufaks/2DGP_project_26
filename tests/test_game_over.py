@@ -50,7 +50,7 @@ class GameOverTests(unittest.TestCase):
         effect = SimpleNamespace(draw=Mock())
         with patch.object(main, 'screen', 'game_over'), \
                 patch.object(main, 'game_over_effect', effect), \
-                patch.object(main, 'clear_canvas'), \
+                patch.object(main, 'clear_game_canvas'), \
                 patch.object(main, 'update_canvas'), \
                 patch.object(game_world, 'render') as render:
             main.render_world()

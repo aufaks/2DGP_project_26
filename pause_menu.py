@@ -1,4 +1,5 @@
 import os
+from sdl2 import SDL_SetTextureScaleMode, SDL_ScaleModeLinear
 
 from pico2d import (
     SDL_KEYDOWN, SDL_MOUSEBUTTONDOWN, SDL_MOUSEMOTION, SDLK_DOWN,
@@ -26,6 +27,8 @@ class PauseMenu:
         self.heading = load_image(os.path.join('sprite', 'pause_heading.png'))
         self.buttons = [load_image(os.path.join('sprite', f'pause_art_{i}.png'))
                         for i in range(1, 4)]
+        for image in (self.heading, *self.buttons):
+            SDL_SetTextureScaleMode(image.texture, SDL_ScaleModeLinear)
         self.selected = 0
 
     def button_at(self, x, y):

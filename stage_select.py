@@ -1,4 +1,5 @@
 import os
+from sdl2 import SDL_SetTextureScaleMode, SDL_ScaleModeLinear
 
 from pico2d import (
     SDL_KEYDOWN, SDL_MOUSEBUTTONDOWN, SDL_MOUSEMOTION, SDLK_DOWN,
@@ -31,6 +32,8 @@ class StageSelect:
         label_dir = os.path.join('sprite', 'select_labels')
         self.labels = {os.path.splitext(name)[0]: load_image(os.path.join(label_dir, name))
                        for name in os.listdir(label_dir) if name.endswith('.png')}
+        for image in self.labels.values():
+            SDL_SetTextureScaleMode(image.texture, SDL_ScaleModeLinear)
         self.mode = 'world'
         self.world = 1
         self.stage = 1

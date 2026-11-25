@@ -1,14 +1,20 @@
+import ctypes
 import time
 
 import pico2d
 from pico2d import *
+from pico2d import pico2d as pico2d_core
+from sdl2 import (
+    SDL_GetRendererOutputSize, SDL_GetWindowSize, SDL_RenderClear,
+    SDL_RenderSetScale, SDL_SetRenderDrawColor,
+)
 
 import game_world
 import main_character
 from action_recorder import ActionRecorder
 from camera import Camera
 from echo_character import EchoCharacter
-from echo_slot_ui import draw_echo_slot_ui, load_echo_slot_font
+from echo_slot_ui import EchoSlotUI, load_echo_slot_font
 from game_over_effect import GameOverEffect
 from hold_action_effect import draw_hold_action_effect
 from hold_key_tracker import HoldKeyTracker
@@ -38,6 +44,7 @@ HOLD_EFFECT_DURATION = 0.65
 GAME_OVER_DURATION = 0.6
 camera = Camera(1280, 720, zoom=1.0)
 echo_slot_font = None
+echo_slot_ui = None
 world_number = 1
 stage_number = 1
 game_complete = False
@@ -48,11 +55,37 @@ pause_menu = None
 game_over_effect = None
 screen_edge_effect = None
 game_over_elapsed = 0.0
+window_size = (1280, 720)
 
 
 def maximize_game_window():
     SDL_SetWindowResizable(pico2d.window, True)
     SDL_MaximizeWindow(pico2d.window)
+
+
+def update_window_scale():
+    global window_size
+    w, h = ctypes.c_int(), ctypes.c_int()
+    output_w, output_h = ctypes.c_int(), ctypes.c_int()
+    SDL_GetWindowSize(pico2d.window, ctypes.byref(w), ctypes.byref(h))
+    if w.value <= 0 or h.value <= 0:
+        return
+    if SDL_GetRendererOutputSize(pico2d_core.renderer, ctypes.byref(output_w),
+                                 ctypes.byref(output_h)) != 0:
+        raise RuntimeError('Could not read the renderer size.')
+    if output_w.value > 0 and output_h.value > 0:
+        SDL_RenderSetScale(pico2d_core.renderer, output_w.value / 1280,
+                           output_h.value / 720)
+        window_size = (w.value, h.value)
+
+
+def to_game_mouse_coordinates(x, y, width, height):
+    return int(x * 1280 / width), int(y * 720 / height)
+
+
+def clear_game_canvas():
+    SDL_SetRenderDrawColor(pico2d_core.renderer, 0, 0, 0, 255)
+    SDL_RenderClear(pico2d_core.renderer)
 
 
 def stop_recording():
@@ -129,6 +162,9 @@ def handle_events():
                 hold_action_effect = ('restore', time.perf_counter())
 
     for event in event_list:
+        if event.type in (SDL_MOUSEMOTION, SDL_MOUSEBUTTONDOWN, SDL_MOUSEBUTTONUP):
+            event.x, event.y = to_game_mouse_coordinates(
+                event.x, event.y, *window_size)
         if event.type == SDL_QUIT:
             running = False
         elif screen == 'game_over':
@@ -325,7 +361,7 @@ def update_world(dt):
 def render_world():
     global hold_action_effect
 
-    clear_canvas()
+    clear_game_canvas()
     if screen == 'title':
         title_screen.draw()
         update_canvas()
@@ -366,17 +402,18 @@ def render_world():
     if level_map is not None and player is not None:
         level_map.draw_interaction_ui(player, echo_slot_font, camera)
         if level_map.echo_unlocked:
-            draw_echo_slot_ui(action_recorder, active_echo, echo_slot_font)
+            echo_slot_ui.draw(action_recorder, active_echo)
     update_canvas()
 
 def main():
-    global running, echo_slot_font, screen, title_screen, stage_select
+    global running, echo_slot_font, echo_slot_ui, screen, title_screen, stage_select
     global pause_menu, game_over_effect, screen_edge_effect
     running = True
     open_canvas(1280, 720)
     screen_edge_effect = ScreenEdgeEffect()
     maximize_game_window()
     echo_slot_font = load_echo_slot_font()
+    echo_slot_ui = EchoSlotUI()
     title_screen = TitleScreen()
     stage_select = StageSelect()
     pause_menu = PauseMenu()
@@ -385,6 +422,7 @@ def main():
     last_frame_time = time.perf_counter()
     accumulator = 0.0
     while running:
+        update_window_scale()
         handle_events()
         now = time.perf_counter()
         accumulator = min(accumulator + min(now - last_frame_time, 0.1), 0.1)

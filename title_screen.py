@@ -1,4 +1,5 @@
 import os
+from sdl2 import SDL_SetTextureScaleMode, SDL_ScaleModeLinear
 
 from pico2d import (
     SDL_KEYDOWN, SDL_MOUSEBUTTONDOWN, SDL_MOUSEMOTION, SDLK_DOWN,
@@ -20,6 +21,8 @@ class TitleScreen:
             load_image(os.path.join('sprite', 'title_button_0.png')),
             load_image(os.path.join('sprite', 'title_button_1.png')),
         )
+        for button in self.buttons:
+            SDL_SetTextureScaleMode(button.texture, SDL_ScaleModeLinear)
         self.selected = 0
 
     def button_at(self, x, y):
