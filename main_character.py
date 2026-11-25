@@ -87,6 +87,7 @@ class MainCharacter:
         self._jump_pressed = False
         self._pending_command = None
         self.last_command = PlayerCommand()
+        self.frozen = False
 
     def handle_event(self, event):
         if event.type == SDL_KEYDOWN:
@@ -148,6 +149,8 @@ class MainCharacter:
         )
 
     def update(self, dt=1 / 60, command=None):
+        if self.frozen:
+            return
         dt = max(0.0, min(float(dt), self.MAX_DELTA_TIME))
 
         if command is None:

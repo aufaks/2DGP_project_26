@@ -24,8 +24,9 @@ FIXED_DT = 1 / 60
 HOLD_DURATION_SECONDS = 2.0
 action_recorder = ActionRecorder(fixed_dt=FIXED_DT)
 active_echo = None
-pending_player_restore = None
+recording_echo = None
 saved_player_position = None
+saved_echo_position = None
 hotkey_keys_down = set()
 hold_key_tracker = HoldKeyTracker(HOLD_DURATION_SECONDS)
 hold_action_effect = None
@@ -41,30 +42,64 @@ stage_select = None
 
 
 def stop_recording():
-    global pending_player_restore
+    global recording_echo, saved_echo_position
 
-    start_pose = action_recorder.stop()
-    if start_pose is not None:
-        pending_player_restore = start_pose
+    action_recorder.stop()
+    if recording_echo is not None:
+        if player is not None:
+            player.pressed_keys.update(recording_echo.pressed_keys)
+            player.frozen = False
+            player._pending_command = None
+            player._jump_pressed = False
+        game_world.remove_object(recording_echo)
+        recording_echo = None
+    saved_echo_position = None
+
+
+def start_recording():
+    global recording_echo, saved_echo_position
+
+    action_recorder.start(player)
+    saved_echo_position = None
+    recording_echo = EchoCharacter(
+        action_recorder.start_pose,
+        (),
+        level_map,
+        player.sprite_images,
+        fixed_dt=FIXED_DT,
+        palette_index=0,
+        recording=True,
+    )
+    recording_echo.pressed_keys.update(player.pressed_keys)
+    player.pressed_keys.clear()
+    player._pending_command = None
+    player._jump_pressed = False
+    player.frozen = True
+    game_world.add_object(recording_echo, 3)
 
 
 def handle_events():
-    global running, active_echo, pending_player_restore, saved_player_position
+    global running, active_echo, saved_player_position, saved_echo_position
     global hold_action_effect, screen, world_number, stage_number, game_complete
 
     event_list = get_events()
     for key in hold_key_tracker.ready_keys(time.perf_counter()) if screen == 'game' else ():
-        if key == SDLK_c and player is not None:
-            saved_player_position = player.capture_position()
+        controlled_actor = recording_echo or player
+        if key == SDLK_c and controlled_actor is not None:
+            if recording_echo is not None:
+                saved_echo_position = controlled_actor.capture_position()
+            else:
+                saved_player_position = controlled_actor.capture_position()
             hold_action_effect = ('save', time.perf_counter())
         elif (
             key == SDLK_z
-            and player is not None
-            and saved_player_position is not None
+            and controlled_actor is not None
         ):
-            player.restore_position(saved_player_position)
-            pending_player_restore = None
-            hold_action_effect = ('restore', time.perf_counter())
+            saved_position = (saved_echo_position if recording_echo is not None
+                              else saved_player_position)
+            if saved_position is not None:
+                controlled_actor.restore_position(saved_position)
+                hold_action_effect = ('restore', time.perf_counter())
 
     for event in event_list:
         if event.type == SDL_QUIT:
@@ -110,8 +145,9 @@ def handle_events():
                     if action_recorder.is_recording:
                         stop_recording()
                     elif player is not None:
-                        action_recorder.start(player)
-                elif event.key == SDLK_j and active_echo is None and \
+                        start_recording()
+                elif event.key == SDLK_j and recording_echo is None and \
+                        active_echo is None and \
                         action_recorder.has_recording:
                     active_echo = EchoCharacter(
                         action_recorder.start_pose,
@@ -119,19 +155,21 @@ def handle_events():
                         level_map,
                         player.sprite_images,
                         fixed_dt=FIXED_DT,
+                        palette_index=0,
                     )
                     game_world.add_object(active_echo, 3)
         elif event.type == SDL_KEYUP and event.key in hotkey_keys_down:
             hotkey_keys_down.discard(event.key)
         else:
-            if player is not None:
-                player.handle_event(event)
+            controlled_actor = recording_echo or player
+            if controlled_actor is not None:
+                controlled_actor.handle_event(event)
 
 
 
 def reset_world():
-    global player, level_map, stage_background, active_echo, pending_player_restore
-    global saved_player_position, hold_action_effect
+    global player, level_map, stage_background, active_echo, recording_echo
+    global saved_player_position, saved_echo_position, hold_action_effect
 
     game_world.world = [[] for _ in range(6)]
     level_map = StageMap(stage_path(world_number, stage_number))
@@ -145,8 +183,9 @@ def reset_world():
 
     action_recorder.reset()
     active_echo = None
-    pending_player_restore = None
+    recording_echo = None
     saved_player_position = None
+    saved_echo_position = None
     hold_action_effect = None
     hold_key_tracker.reset()
     hotkey_keys_down.clear()
@@ -161,18 +200,17 @@ def reset_world():
 
 
 def update_world(dt):
-    global active_echo, pending_player_restore
+    global active_echo
     global world_number, stage_number, game_complete, screen
 
-    if player is not None:
-        command = player.command_for_tick()
-        if action_recorder.record(command):
-            pending_player_restore = action_recorder.start_pose
+    recording_finished = False
+    if recording_echo is not None:
+        command = recording_echo.command_for_tick()
+        recording_finished = action_recorder.record(command)
 
     game_world.update(dt)
-    if pending_player_restore is not None and player is not None:
-        player.restore_pose(pending_player_restore)
-        pending_player_restore = None
+    if recording_finished:
+        stop_recording()
 
     if active_echo is not None and active_echo.finished:
         game_world.remove_object(active_echo)
@@ -182,13 +220,16 @@ def update_world(dt):
         actors = [player]
         if active_echo is not None:
             actors.append(active_echo)
+        if recording_echo is not None:
+            actors.append(recording_echo)
         level_map.update_mechanisms(actors)
 
     if player is not None and level_map is not None:
+        camera_target = recording_echo or player
         camera.follow(
-            player.x,
-            player.y + player.DRAW_SIZE * (
-                0.5 - player.FRAME_FOOT_OFFSET / player.FRAME_HEIGHT
+            camera_target.x,
+            camera_target.y + camera_target.DRAW_SIZE * (
+                0.5 - camera_target.FRAME_FOOT_OFFSET / camera_target.FRAME_HEIGHT
             ),
             level_map.pixel_width,
             level_map.pixel_height,
