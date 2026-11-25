@@ -1,5 +1,6 @@
 import time
 
+import pico2d
 from pico2d import *
 
 import game_world
@@ -39,6 +40,11 @@ game_complete = False
 screen = 'game'
 title_screen = None
 stage_select = None
+
+
+def maximize_game_window():
+    SDL_SetWindowResizable(pico2d.window, True)
+    SDL_MaximizeWindow(pico2d.window)
 
 
 def stop_recording():
@@ -289,6 +295,7 @@ def main():
     global running, echo_slot_font, screen, title_screen, stage_select
     running = True
     open_canvas(1280, 720)
+    maximize_game_window()
     echo_slot_font = load_echo_slot_font()
     title_screen = TitleScreen()
     stage_select = StageSelect()
