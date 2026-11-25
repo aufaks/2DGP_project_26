@@ -60,6 +60,7 @@ class GameOverTests(unittest.TestCase):
                 main.camera.width,
                 main.camera.height,
                 main.game_over_elapsed,
+                main.screen_edge_effect,
             )
 
 

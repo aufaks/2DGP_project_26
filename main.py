@@ -35,7 +35,7 @@ hotkey_keys_down = set()
 hold_key_tracker = HoldKeyTracker(HOLD_DURATION_SECONDS)
 hold_action_effect = None
 HOLD_EFFECT_DURATION = 0.65
-GAME_OVER_DURATION = 1.5
+GAME_OVER_DURATION = 0.6
 camera = Camera(1280, 720, zoom=1.0)
 echo_slot_font = None
 world_number = 1
@@ -392,7 +392,7 @@ def main():
         while screen in ('game', 'game_over') and accumulator >= FIXED_DT:
             update_world(FIXED_DT)
             accumulator -= FIXED_DT
-        if screen != 'game':
+        if screen not in ('game', 'game_over'):
             accumulator = 0.0
         render_world()
         delay(0.01)
