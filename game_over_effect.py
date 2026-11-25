@@ -23,7 +23,7 @@ class GameOverEffect:
         self.heading = load_font(font_path, 42)
         self.message = load_font(font_path, 22)
 
-    def draw(self, width, height, elapsed):
+    def draw(self, width, height, elapsed, edge_effect):
         renderer = pico2d.draw_rectangle.__globals__.get('renderer')
         if renderer is None:
             raise RuntimeError('Open the Pico2D canvas before drawing the game-over effect.')
@@ -47,20 +47,8 @@ class GameOverEffect:
                 0, 0, width, height, 45, 5, 14, overlay_alpha, filled=True,
             )
 
-            border = 8 + round(12 * min(elapsed / 0.5, 1))
-            draw_rectangle(0, 0, width, border, 220, 48, 65, 220, filled=True)
-            draw_rectangle(
-                0, height - border, width, height,
-                220, 48, 65, 220, filled=True,
-            )
-            draw_rectangle(
-                0, border, border, height - border,
-                220, 48, 65, 220, filled=True,
-            )
-            draw_rectangle(
-                width - border, border, width, height - border,
-                220, 48, 65, 220, filled=True,
-            )
+            edge_effect.draw(width, height, (255, 75, 83),
+                             .85 * min(elapsed / 0.5, 1))
 
             panel_width = min(560, width - 48)
             panel_height = 176

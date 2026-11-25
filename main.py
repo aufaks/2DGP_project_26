@@ -14,6 +14,7 @@ from hold_action_effect import draw_hold_action_effect
 from hold_key_tracker import HoldKeyTracker
 from pause_menu import PauseMenu
 from recording_effect import draw_recording_effect
+from screen_edge_effect import ScreenEdgeEffect
 from stage_background import StageBackground
 from stage_map import StageMap
 from stage_progress import next_stage, stage_path
@@ -45,6 +46,7 @@ title_screen = None
 stage_select = None
 pause_menu = None
 game_over_effect = None
+screen_edge_effect = None
 game_over_elapsed = 0.0
 
 
@@ -338,6 +340,7 @@ def render_world():
             camera.width,
             camera.height,
             game_over_elapsed,
+            screen_edge_effect,
         )
         update_canvas()
         return
@@ -346,7 +349,7 @@ def render_world():
         update_canvas()
         return
     if action_recorder.is_recording:
-        draw_recording_effect(camera.width, camera.height)
+        draw_recording_effect(camera.width, camera.height, screen_edge_effect)
     if hold_action_effect is not None:
         action, started_at = hold_action_effect
         elapsed = time.perf_counter() - started_at
@@ -356,6 +359,7 @@ def render_world():
                 camera.height,
                 action,
                 elapsed,
+                screen_edge_effect,
             )
         else:
             hold_action_effect = None
@@ -367,9 +371,10 @@ def render_world():
 
 def main():
     global running, echo_slot_font, screen, title_screen, stage_select
-    global pause_menu, game_over_effect
+    global pause_menu, game_over_effect, screen_edge_effect
     running = True
     open_canvas(1280, 720)
+    screen_edge_effect = ScreenEdgeEffect()
     maximize_game_window()
     echo_slot_font = load_echo_slot_font()
     title_screen = TitleScreen()
