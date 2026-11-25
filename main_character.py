@@ -281,6 +281,11 @@ class MainCharacter:
             self.y + self.COLLIDER_HEIGHT,
         )
 
+    def sprite_top(self):
+        return self.y + self.DRAW_SIZE * (
+            1 - self.FRAME_FOOT_OFFSET / self.FRAME_HEIGHT
+        )
+
     def _set_state(self, state):
         if self.state != state:
             self.state = state

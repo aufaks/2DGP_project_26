@@ -12,7 +12,7 @@ from sdl2 import (
 import game_world
 import main_character
 from action_recorder import ActionRecorder
-from camera import Camera
+from camera import Camera, OffsetCamera
 from echo_character import EchoCharacter
 from echo_slot_ui import EchoSlotUI, load_echo_slot_font
 from game_over_effect import GameOverEffect
@@ -58,9 +58,8 @@ game_over_elapsed = 0.0
 window_size = (1280, 720)
 
 
-def maximize_game_window():
+def configure_game_window():
     SDL_SetWindowResizable(pico2d.window, True)
-    SDL_MaximizeWindow(pico2d.window)
 
 
 def update_window_scale():
@@ -305,7 +304,8 @@ def update_world(dt):
     if recording_finished:
         stop_recording()
 
-    if player is not None and player.get_collision_box()[3] < 0:
+    screen_bottom = camera.y - camera.height / (2 * camera.zoom)
+    if player is not None and player.sprite_top() < min(0, screen_bottom):
         stop_recording()
         for actor in (player, active_echo):
             if actor is not None:
@@ -370,7 +370,11 @@ def render_world():
         stage_select.draw()
         update_canvas()
         return
-    game_world.render(camera)
+    render_camera = camera
+    if screen == 'game_over':
+        shake_x, shake_y = game_over_effect.shake_offset(game_over_elapsed)
+        render_camera = OffsetCamera(camera, shake_x, shake_y)
+    game_world.render(render_camera)
     if screen == 'game_over':
         game_over_effect.draw(
             camera.width,
@@ -411,7 +415,7 @@ def main():
     running = True
     open_canvas(1280, 720)
     screen_edge_effect = ScreenEdgeEffect()
-    maximize_game_window()
+    configure_game_window()
     echo_slot_font = load_echo_slot_font()
     echo_slot_ui = EchoSlotUI()
     title_screen = TitleScreen()

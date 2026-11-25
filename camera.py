@@ -39,3 +39,22 @@ class Camera:
 
     def transform_size(self, size):
         return size * self.zoom
+
+
+class OffsetCamera:
+    """Apply a temporary screen-space offset without moving the game camera."""
+
+    def __init__(self, camera, x, y):
+        self.camera = camera
+        self.offset_x = x
+        self.offset_y = y
+
+    def __getattr__(self, name):
+        return getattr(self.camera, name)
+
+    def world_to_screen(self, x, y):
+        x, y = self.camera.world_to_screen(x, y)
+        return x + self.offset_x, y + self.offset_y
+
+    def transform_size(self, size):
+        return self.camera.transform_size(size)
