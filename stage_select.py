@@ -1,11 +1,9 @@
 import os
 
-from pico2d import pico2d as pico2d_core
-from sdl2 import SDL_BLENDMODE_BLEND, SDL_SetRenderDrawBlendMode
 from pico2d import (
     SDL_KEYDOWN, SDL_MOUSEBUTTONDOWN, SDL_MOUSEMOTION, SDLK_DOWN,
     SDLK_ESCAPE, SDLK_RETURN, SDLK_SPACE, SDLK_UP, SDLK_LEFT,
-    SDLK_RIGHT, draw_rectangle, load_font, load_image,
+    SDLK_RIGHT, load_image,
 )
 
 from stage_progress import STAGES_PER_WORLD, WORLD_COUNT, stage_path
@@ -27,13 +25,12 @@ class StageSelect:
         self.images = [load_image(os.path.join('sprite',
                        f'world_{world:02d}_select.png'))
                        for world in range(1, WORLD_COUNT + 1)]
-        fonts = os.path.join(os.environ.get('WINDIR', r'C:\Windows'), 'Fonts')
-        korean = os.path.join(fonts, 'malgun.ttf')
-        font_path = korean if os.path.isfile(korean) else os.path.join(fonts, 'arial.ttf')
-        self.korean = os.path.isfile(korean)
-        self.heading = load_font(font_path, 40)
-        self.body = load_font(font_path, 22)
-        self.small = load_font(font_path, 16)
+        self.ui = [load_image(os.path.join('sprite', f'select_ui_{i}.png'))
+                   for i in range(4)]
+        self.dim = load_image(os.path.join('sprite', 'select_dim.png'))
+        label_dir = os.path.join('sprite', 'select_labels')
+        self.labels = {os.path.splitext(name)[0]: load_image(os.path.join(label_dir, name))
+                       for name in os.listdir(label_dir) if name.endswith('.png')}
         self.mode = 'world'
         self.world = 1
         self.stage = 1
@@ -107,7 +104,6 @@ class StageSelect:
         return None
 
     def draw(self):
-        SDL_SetRenderDrawBlendMode(pico2d_core.renderer, SDL_BLENDMODE_BLEND)
         if self.mode == 'world':
             self._draw_worlds()
         else:
@@ -115,46 +111,46 @@ class StageSelect:
 
     def _draw_worlds(self):
         self.images[self.world - 1].draw(640, 360, 1280, 720)
-        draw_rectangle(0, 0, 1280, 720, 15, 27, 58, 205, filled=True)
-        self.heading.draw(64, 618, '월드 선택' if self.korean else 'SELECT WORLD', (247, 248, 255))
-        self.body.draw(68, 574, '탐험할 장소를 선택하세요' if self.korean else 'Choose a world', (183, 218, 240))
+        self.dim.opacify(.64)
+        self.dim.draw(640, 360, 1280, 720)
+        self._label('world_select', 160, 639, 34)
+        self._label('choose', 210, 591, 20)
         for index, center in enumerate(self.CARD_X):
             world = index + 1
             selected = world == self.world
-            left, right = center - 142, center + 142
-            draw_rectangle(left - 3, 219, right + 3, 490,
-                           *( (99, 232, 245) if selected else (95, 115, 165) ), filled=True)
-            draw_rectangle(left, 222, right, 487, 24, 39, 81, filled=True)
-            self.images[index].draw(center, 390, 278, 157)
-            self.body.draw(left + 14, 273, f'WORLD {world:02d}', (110, 237, 241))
-            name = self.WORLD_NAMES[index] if self.korean else ('SKY PATH', 'OUTSKIRTS', 'INNER RUINS', 'ECHO CORE')[index]
-            self.body.draw(left + 14, 238, name, (246, 248, 255))
-        self.small.draw(66, 64, '← → 선택   ·   ENTER 확인   ·   ESC 돌아가기' if self.korean
-                        else 'LEFT / RIGHT  ·  ENTER TO SELECT  ·  ESC TO RETURN', (213, 225, 244))
+            self.ui[0].opacify(1.0 if selected else .64)
+            self.ui[0].draw(center, 354, 290, 300)
+            self.images[index].opacify(1.0 if selected else .72)
+            self.images[index].draw(center, 370, 174, 98)
+            self.images[index].opacify(1.0)
+            self._label(f'world_{world}', center, 300, 18)
+            self._label(f'name_{world}', center, 271, 20, 180)
+        self.ui[0].opacify(1.0)
+        self._label('guide', 235, 66, 16)
 
     def _draw_stages(self):
         self.images[self.world - 1].draw(640, 360, 1280, 720)
-        draw_rectangle(0, 0, 428, 720, 17, 32, 70, 240, filled=True)
-        self.small.draw(38, 652, f'WORLD {self.world:02d} / 04', (112, 228, 241))
-        name = self.WORLD_NAMES[self.world - 1] if self.korean else ('SKY PATH', 'OUTSKIRTS', 'INNER RUINS', 'ECHO CORE')[self.world - 1]
-        self.heading.draw(36, 597, name, (246, 248, 255))
-        self.small.draw(38, 558, '스테이지 선택' if self.korean else 'SELECT STAGE', (183, 218, 240))
+        self.ui[2].draw(214, 360, 450, 720)
+        self._label(f'world_heading_{self.world}', 214, 625, 16)
+        self._label(f'name_{self.world}', 214, 585, 28, 270)
+        self._label('stage_select', 214, 548, 17)
         for stage in range(1, STAGES_PER_WORLD + 1):
             left = self.STAGE_LEFT + ((stage - 1) % 3) * self.STAGE_STEP_X
             bottom = self.STAGE_TOP - ((stage - 1) // 3) * self.STAGE_STEP_Y
             available = self.available(stage)
             selected = stage == self.stage
-            if selected:
-                draw_rectangle(left - 3, bottom - 3, left + self.STAGE_SIZE + 3,
-                               bottom + self.STAGE_SIZE + 3, 101, 232, 245, filled=True)
-            draw_rectangle(left, bottom, left + self.STAGE_SIZE,
-                           bottom + self.STAGE_SIZE,
-                           *((39, 77, 115) if available else (33, 49, 78)), filled=True)
-            self.body.draw(left + 16, bottom + 42, f'{self.world}-{stage}',
-                           (248, 249, 255) if available else (143, 157, 182))
-            self.small.draw(left + 12, bottom + 14,
-                            ('입장' if available else '준비 중') if self.korean
-                            else ('PLAY' if available else 'SOON'),
-                            (112, 231, 239) if available else (132, 146, 171))
-        draw_rectangle(35, 30, 202, 72, 49, 76, 119, filled=True)
-        self.small.draw(52, 42, '← 월드 선택' if self.korean else '< WORLDS', (248, 249, 255))
+            self.ui[1].opacify(1.0 if selected else .60 if available else .38)
+            self.ui[1].draw(left + 46, bottom + 46, 104, 104)
+            self._label(f'stage_{self.world}_{stage}', left + 46, bottom + 52, 21)
+            self._label('play' if available else 'soon', left + 46, bottom + 29, 11)
+        self.ui[1].opacify(1.0)
+        self.ui[3].draw(118, 51, 185, 72)
+        self._label('back', 118, 49, 15, 120)
+
+    def _label(self, key, x, y, height, max_width=None):
+        image = self.labels[key]
+        width = height * image.w / image.h
+        if max_width is not None and width > max_width:
+            height *= max_width / width
+            width = max_width
+        image.draw(x, y, width, height)
