@@ -166,7 +166,7 @@ def handle_events():
                 event.x, event.y, *window_size)
         if event.type == SDL_QUIT:
             running = False
-        elif screen == 'game_over':
+        elif screen in ('game_over', 'stage_exit'):
             continue
         elif screen == 'title':
             action = title_screen.handle_event(event)
@@ -210,11 +210,6 @@ def handle_events():
             hold_key_tracker.key_down(event.key, time.perf_counter())
         elif event.type == SDL_KEYUP and event.key in (SDLK_c, SDLK_z):
             hold_key_tracker.key_up(event.key)
-        elif event.type == SDL_KEYDOWN and event.key == SDLK_e:
-            if event.key not in hotkey_keys_down:
-                hotkey_keys_down.add(event.key)
-                if level_map is not None and player is not None:
-                    level_map.collect_echo_device(player)
         elif event.type == SDL_KEYDOWN and event.key in (SDLK_i, SDLK_j):
             if event.key not in hotkey_keys_down:
                 hotkey_keys_down.add(event.key)
@@ -285,6 +280,24 @@ def update_world(dt):
     global world_number, stage_number, game_complete, screen
     global game_over_elapsed
 
+    if screen == 'stage_exit':
+        player.walk_out(dt)
+        level_map.update(dt)
+        screen_x, _ = camera.world_to_screen(player.x, player.y)
+        if screen_x - camera.transform_size(player.DRAW_SIZE) / 2 > camera.width:
+            following = next_stage(world_number, stage_number)
+            if following is None:
+                game_complete = True
+                stage_select.show_stages(world_number)
+                screen = 'select'
+            elif stage_path(*following).is_file():
+                world_number, stage_number = following
+                reset_world()
+                screen = 'game'
+            else:
+                stage_select.show_stages(following[0])
+                screen = 'select'
+        return
     if screen == 'game_over':
         game_over_elapsed += dt
         if game_over_elapsed >= GAME_OVER_DURATION:
@@ -343,19 +356,16 @@ def update_world(dt):
         for stage_exit in level_map.stage_exits:
             left, bottom, right, top = stage_exit.rect
             al, ab, ar, at = player.get_collision_box()
-            if ar <= left or al >= right or at <= bottom or ab >= top:
+            if (not player.grounded or ar <= left or al >= right
+                    or at <= bottom or ab >= top):
                 continue
-            following = next_stage(world_number, stage_number)
-            if following is None:
-                game_complete = True
-                stage_select.show_stages(world_number)
-                screen = 'select'
-            elif stage_path(*following).is_file():
-                world_number, stage_number = following
-                reset_world()
-            else:
-                stage_select.show_stages(following[0])
-                screen = 'select'
+            stop_recording()
+            player.pressed_keys.clear()
+            player._jump_pressed = False
+            player._pending_command = None
+            hold_key_tracker.reset()
+            hotkey_keys_down.clear()
+            screen = 'stage_exit'
             break
 
 def render_world():
@@ -404,7 +414,6 @@ def render_world():
         else:
             hold_action_effect = None
     if level_map is not None and player is not None:
-        level_map.draw_interaction_ui(player, echo_slot_font, camera)
         if level_map.echo_unlocked:
             echo_slot_ui.draw(action_recorder, active_echo)
     update_canvas()
@@ -431,10 +440,10 @@ def main():
         now = time.perf_counter()
         accumulator = min(accumulator + min(now - last_frame_time, 0.1), 0.1)
         last_frame_time = now
-        while screen in ('game', 'game_over') and accumulator >= FIXED_DT:
+        while screen in ('game', 'game_over', 'stage_exit') and accumulator >= FIXED_DT:
             update_world(FIXED_DT)
             accumulator -= FIXED_DT
-        if screen not in ('game', 'game_over'):
+        if screen not in ('game', 'game_over', 'stage_exit'):
             accumulator = 0.0
         render_world()
         delay(0.01)

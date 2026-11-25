@@ -8,34 +8,36 @@
     [1097, 0, 1280, 461]
   ],
   "slopes": [],
-  "images": [],
+  "images": [
+    {"path": "../../sprite/stage11_art_0.png", "rect": [0, -60, 240, 220]},
+    {"path": "../../sprite/stage11_art_0.png", "rect": [473, -60, 807, 220]},
+    {"path": "../../sprite/stage11_pillar.png", "rect": [1035, -25, 1347, 495]}
+  ],
   "platforms": [
     {
       "id": "echo_lift",
       "type": "EchoPlatform",
-      "rect": [884, 272, 1019, 314]
+      "rect": [884, 272, 1019, 314],
+      "sprite": "../../sprite/stage11_art_2.png"
     }
   ],
   "objects": [
-    {
-      "id": "memory_crystal",
-      "type": "EchoDevice",
-      "rect": [158, 149, 199, 218],
-      "interaction_range": 64
-    },
     {
       "id": "memory_plate",
       "type": "PressurePlate",
       "target_id": "echo_lift",
       "rect": [590, 140, 694, 149],
       "style": "echo_pad",
-      "requires_echo": true
+      "sprite": "../../sprite/stage11_art_3.png",
+      "requires_echo": false
     },
     {
       "id": "sunlit_way",
       "type": "StageExit",
       "rect": [1238, 461, 1278, 586],
-      "style": "wall_glow"
+      "style": "particles",
+      "sprite": "../../sprite/goal_particle.png",
+      "glow_sprite": "../../sprite/stage11_side_light.png"
     }
   ]
 }

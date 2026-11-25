@@ -286,6 +286,15 @@ class MainCharacter:
             1 - self.FRAME_FOOT_OFFSET / self.FRAME_HEIGHT
         )
 
+    def walk_out(self, dt):
+        self.frozen = False
+        self.facing_left = False
+        self.is_moving = True
+        self._set_state('RUN')
+        self.x += self.MOVE_SPEED * dt
+        self.animation_time += dt
+        self.run_animation_time += dt
+
     def _set_state(self, state):
         if self.state != state:
             self.state = state

@@ -13,8 +13,8 @@ class StageMapTests(unittest.TestCase):
         with patch('stage_map.load_image'):
             stage = StageMap(stage_path(1, 1))
         self.assertEqual((stage.pixel_width, stage.pixel_height), (1280, 720))
-        self.assertEqual(stage.player_spawn, (120, 136))
-        self.assertTrue(stage.is_supported(120, 136, 36))
+        self.assertEqual(stage.player_spawn, (120, 149))
+        self.assertTrue(stage.is_supported(120, 149, 36))
         self.assertTrue(stage.echo_unlocked)
         self.assertEqual(next_stage(1, 9), (2, 1))
         self.assertEqual(next_stage(3, 9), (4, 1))
@@ -43,7 +43,8 @@ class StageMapTests(unittest.TestCase):
             path.write_text(json.dumps(data), encoding='utf-8')
             with patch('stage_map.load_image'):
                 stage = StageMap(path)
-        self.assertFalse(stage.echo_unlocked)
+        self.assertTrue(stage.echo_unlocked)
+        self.assertEqual(stage.echo_devices, [])
         self.assertEqual(stage._slope_surface_at(336), 176)
         self.assertEqual(len(stage.stage_exits), 1)
         self.assertIn(stage.doors['gate'].rect, stage.solid_rects)

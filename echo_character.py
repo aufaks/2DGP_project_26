@@ -9,6 +9,7 @@ from main_character import MainCharacter
 
 
 class EchoCharacter(MainCharacter):
+    is_echo = True
     # I/J, O/K, P/L: the same animation frames, three distinct echoes.
     PALETTE = ((78, 184, 255), (86, 240, 166), (198, 139, 255))
 

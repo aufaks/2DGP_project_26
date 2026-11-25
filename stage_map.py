@@ -5,7 +5,7 @@ from pico2d import draw_circle, draw_line, draw_rectangle, load_image
 from pico2d import pico2d as pico2d_core
 from sdl2 import SDL_BLENDMODE_BLEND, SDL_SetRenderDrawBlendMode
 
-from game_objects import Door, EchoDevice, EchoPlatform, PressurePlate, StageExit
+from game_objects import Door, EchoPlatform, PressurePlate, StageExit
 
 
 class StageMap:
@@ -41,9 +41,14 @@ class StageMap:
             if item.get('type') == 'EchoPlatform':
                 self.echo_platforms[object_id] = EchoPlatform(
                     object_id, item['rect'])
+                if item.get('sprite'):
+                    self.echo_platforms[object_id].image = load_image(
+                        str((self.path.parent / item['sprite']).resolve()))
             else:
                 raise ValueError(f"Unknown platform type: {item.get('type')}")
         for item in data.get('objects', []):
+            if item['type'] == 'EchoDevice':
+                continue
             object_id = item['id']
             if object_id in ids:
                 raise ValueError(f'Duplicate stage object id: {object_id}')
@@ -60,35 +65,38 @@ class StageMap:
                         object_id, item['target_id'], rect,
                         style=item.get('style', 'standard'),
                         requires_echo=item.get('requires_echo', False)))
-            elif kind == 'EchoDevice':
-                self.echo_devices.append(EchoDevice(
-                    object_id, rect, item.get('interaction_range', 64)))
             elif kind == 'StageExit':
                 self.stage_exits.append(StageExit(
                     object_id, rect, item.get('style', 'arch')))
             else:
                 raise ValueError(f'Unknown stage object type: {kind}')
+            if item.get('sprite'):
+                image = load_image(str((self.path.parent / item['sprite']).resolve()))
+                if kind == 'PressurePlate':
+                    self.pressure_plates[-1].stage_image = image
+                elif kind == 'StageExit':
+                    self.stage_exits[-1].stage_image = image
+            if kind == 'StageExit' and item.get('glow_sprite'):
+                self.stage_exits[-1].glow_image = load_image(
+                    str((self.path.parent / item['glow_sprite']).resolve()))
         for plate in self.pressure_plates:
             if plate.target_id not in self.doors and \
                     plate.target_id not in self.echo_platforms:
                 raise ValueError(f'Unknown pressure plate target: {plate.target_id}')
             if plate.target_id in self.doors:
                 plate.signal_marks = self.doors[plate.target_id].signal_marks
-        self.echo_unlocked = not self.echo_devices
+        self.echo_unlocked = True
         self.interact_prompt = None
         if data.get('objects'):
             sprite_dir = Path(__file__).resolve().parent / 'sprite'
             names = ('plate_idle', 'plate_pressed', 'door_closed',
-                     'door_open', 'echo_device', 'stage_exit', 'interact_prompt')
+                     'door_open', 'stage_exit')
             assets = {name: load_image(str(sprite_dir / f'{name}.png'))
                       for name in names}
-            self.interact_prompt = assets['interact_prompt']
             for door in self.doors.values():
                 door.images = (assets['door_closed'], assets['door_open'])
             for plate in self.pressure_plates:
                 plate.images = (assets['plate_idle'], assets['plate_pressed'])
-            for device in self.echo_devices:
-                device.image = assets['echo_device']
             for stage_exit in self.stage_exits:
                 stage_exit.image = assets['stage_exit']
 
@@ -97,28 +105,6 @@ class StageMap:
         self.echo_notice_seconds = max(0.0, self.echo_notice_seconds - dt)
         for stage_exit in self.stage_exits:
             stage_exit.update(dt)
-
-    def collect_echo_device(self, actor):
-        if self.echo_unlocked:
-            return False
-        for device in self.echo_devices:
-            if device.collect(actor):
-                self.echo_unlocked = True
-                self.echo_notice_seconds = 4.0
-                return True
-        return False
-
-    def draw_interaction_ui(self, actor, font, camera):
-        if self.echo_unlocked or self.interact_prompt is None:
-            return
-        for device in self.echo_devices:
-            if device.can_collect(actor):
-                left, _, right, top = device.rect
-                x, y = camera.world_to_screen((left + right) / 2, top + 72)
-                self.interact_prompt.clip_composite_draw(
-                    0, 0, self.interact_prompt.w, self.interact_prompt.h,
-                    0, '', x, y, camera.transform_size(76),
-                    camera.transform_size(36))
 
     def update_mechanisms(self, actors, dt=1 / 60):
         actors = tuple(actors)

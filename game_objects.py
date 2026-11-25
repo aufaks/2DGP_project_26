@@ -89,6 +89,50 @@ class StageExit:
         self.animation_time += max(0.0, dt)
 
     def draw(self, camera=None):
+        if self.style == 'particles' and getattr(self, 'stage_image', None) is not None:
+            image = self.stage_image
+            _, bottom, right, top = self.rect
+            glow = getattr(self, 'glow_image', None)
+            if glow is not None:
+                x, y, width, height = right - 145, (bottom + top) / 2, 290, 210
+                if camera is not None:
+                    x, y = camera.world_to_screen(x, y)
+                    width = camera.transform_size(width)
+                    height = camera.transform_size(height)
+                glow.opacify(.48 + .04 * math.sin(self.animation_time * 1.5))
+                try:
+                    glow.draw(x, y, width, height)
+                finally:
+                    glow.opacify(1.0)
+            # Particles emerge from the right edge and drift into the stage.
+            for index in range(9):
+                phase = (self.animation_time * (0.24 + index * .012) + index * .139) % 1.0
+                x = right + 8 - phase * 80
+                y = bottom + 18 + (index % 5) * (top - bottom - 36) / 4
+                y += 5 * math.sin(phase * 6.28 + index)
+                size = 28 + (index % 3) * 6
+                if camera is not None:
+                    x, y = camera.world_to_screen(x, y)
+                    size = camera.transform_size(size)
+                opacity = .72 * math.sin(math.pi * phase)
+                image.opacify(max(0.0, opacity))
+                crop = min(image.w, image.h) // 2
+                image.clip_draw((image.w - crop) // 2, (image.h - crop) // 2,
+                                crop, crop, x, y, size, size)
+            image.opacify(1.0)
+            return
+        if getattr(self, 'stage_image', None) is not None:
+            left, bottom, right, top = self.rect
+            x, y, width, height = right - 240, bottom + 85, 480, 300
+            if camera is not None:
+                x, y = camera.world_to_screen(x, y)
+                width, height = camera.transform_size(width), camera.transform_size(height)
+            self.stage_image.opacify(.65 + .10 * math.sin(self.animation_time * 2))
+            try:
+                self.stage_image.draw(x, y, width, height)
+            finally:
+                self.stage_image.opacify(1.0)
+            return
         if self.style == 'wall_glow':
             left, bottom, right, top = _screen_rect(self.rect, camera)
             SDL_SetRenderDrawBlendMode(pico2d_core.renderer, SDL_BLENDMODE_BLEND)
@@ -242,6 +286,15 @@ class PressurePlate:
         )
 
     def draw(self, camera=None):
+        if getattr(self, 'stage_image', None) is not None:
+            image = self.stage_image
+            image.opacify(1.0 if self.is_pressed else .72)
+            try:
+                _draw_sprite(image, self.rect, camera,
+                             self.rect[2] - self.rect[0] + 28, 48, 3)
+            finally:
+                image.opacify(1.0)
+            return
         if self.style == 'echo_pad':
             left, bottom, right, top = _screen_rect(self.rect, camera)
             width, height = right - left, top - bottom
@@ -299,6 +352,14 @@ class EchoPlatform:
         self.animation_time += max(0.0, dt)
 
     def draw(self, camera=None):
+        if getattr(self, 'image', None) is not None:
+            self.image.opacify(.95 if self.active else .17)
+            try:
+                _draw_sprite(self.image, self.rect, camera,
+                             self.rect[2] - self.rect[0] + 12, 96, -17)
+            finally:
+                self.image.opacify(1.0)
+            return
         left, bottom, right, top = _screen_rect(self.rect, camera)
         scale = camera.zoom if camera is not None else 1.0
         pulse = (math.sin(self.animation_time * 4.0) + 1.0) * .5
