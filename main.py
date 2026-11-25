@@ -80,7 +80,6 @@ def start_recording():
     player.pressed_keys.clear()
     player._pending_command = None
     player._jump_pressed = False
-    player.frozen = True
     game_world.add_object(recording_echo, 3)
 
 

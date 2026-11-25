@@ -26,6 +26,14 @@ class FlatMap:
         self.actors = tuple(actors)
 
 
+class FallingMap(FlatMap):
+    def is_supported(self, *args):
+        return False
+
+    def move_actor(self, x, y, width, height, dx, dy):
+        return x + dx, y + dy, False, False
+
+
 class RecordingControlTests(unittest.TestCase):
     def test_body_stays_put_while_echo_records_then_replays(self):
         image = SimpleNamespace()
@@ -50,7 +58,7 @@ class RecordingControlTests(unittest.TestCase):
             self.addCleanup(main.hotkey_keys_down.clear)
             events.return_value = [SimpleNamespace(type=SDL_KEYDOWN, key=SDLK_i)]
             main.handle_events()
-            self.assertTrue(player.frozen)
+            self.assertFalse(player.frozen)
             self.assertIn(main.recording_echo, layers[3])
             self.assertEqual(main.recording_echo.palette_index, 0)
             self.assertEqual(main.recording_echo.x, player.x)
@@ -60,6 +68,7 @@ class RecordingControlTests(unittest.TestCase):
             for _ in range(2):
                 main.update_world(1 / 60)
             self.assertEqual(player.x, 200)
+            self.assertGreater(player.animation_time, 0)
             self.assertGreater(main.recording_echo.x, 200)
             self.assertIn(main.recording_echo, stage.actors)
 
@@ -80,6 +89,42 @@ class RecordingControlTests(unittest.TestCase):
             main.update_world(1 / 60)
             self.assertGreater(main.active_echo.x, 200)
             self.assertEqual(player.x, 200)
+
+    def test_player_keeps_falling_while_echo_records(self):
+        image = SimpleNamespace()
+        sprites = (image, image, image)
+        stage = FallingMap()
+        player = MainCharacter(x=200, y=200, collision_map=stage,
+                               sprite_images=sprites)
+        recorder = ActionRecorder(max_duration_seconds=1, fixed_dt=1 / 60)
+        layers = [[] for _ in range(6)]
+        layers[3].append(player)
+
+        with patch.object(main, 'player', player), \
+                patch.object(main, 'level_map', stage), \
+                patch.object(main, 'action_recorder', recorder), \
+                patch.object(main, 'active_echo', None), \
+                patch.object(main, 'recording_echo', None), \
+                patch.object(main, 'screen', 'game'), \
+                patch.object(game_world, 'world', layers), \
+                patch.object(main, 'get_events') as events:
+            main.hotkey_keys_down.clear()
+            main.hold_key_tracker.reset()
+            self.addCleanup(main.hotkey_keys_down.clear)
+            events.return_value = [SimpleNamespace(type=SDL_KEYDOWN, key=SDLK_i)]
+            main.handle_events()
+            self.assertFalse(player.grounded)
+            self.assertFalse(player.frozen)
+
+            initial_y = player.y
+            events.return_value = []
+            for _ in range(3):
+                main.update_world(1 / 60)
+
+            self.assertLess(player.y, initial_y)
+            self.assertLess(player.velocity_y, 0)
+            self.assertEqual(player.x, 200)
+            self.assertGreater(player.animation_time, 0)
 
 
 if __name__ == '__main__':

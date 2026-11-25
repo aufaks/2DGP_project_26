@@ -149,9 +149,12 @@ class MainCharacter:
         )
 
     def update(self, dt=1 / 60, command=None):
-        if self.frozen:
-            return
         dt = max(0.0, min(float(dt), self.MAX_DELTA_TIME))
+        if self.frozen:
+            self.animation_time += dt
+            if self.state == 'RUN' and self.is_moving:
+                self.run_animation_time += dt
+            return
 
         if command is None:
             command = self.command_for_tick()
