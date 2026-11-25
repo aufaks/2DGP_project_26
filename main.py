@@ -14,6 +14,7 @@ from recording_effect import draw_recording_effect
 from stage_background import StageBackground
 from stage_map import StageMap
 from stage_progress import next_stage, stage_path
+from stage_select import StageSelect
 from title_screen import TitleScreen
 
 player = None
@@ -36,6 +37,7 @@ stage_number = 1
 game_complete = False
 screen = 'game'
 title_screen = None
+stage_select = None
 
 
 def stop_recording():
@@ -70,14 +72,24 @@ def handle_events():
         elif screen == 'title':
             action = title_screen.handle_event(event)
             if action == 'start':
-                world_number, stage_number = 1, 1
-                game_complete = False
-                reset_world()
-                screen = 'game'
+                stage_select.show_worlds()
+                screen = 'select'
             elif action == 'quit':
                 running = False
+        elif screen == 'select':
+            action = stage_select.handle_event(event)
+            if action is not None:
+                if action[0] == 'title':
+                    screen = 'title'
+                elif action[0] == 'play':
+                    world_number, stage_number = action[1:]
+                    game_complete = False
+                    reset_world()
+                    screen = 'game'
         elif event.type == SDL_KEYDOWN and event.key == SDLK_ESCAPE:
-            running = False
+            stage_select.show_stages(world_number)
+            stage_select.stage = stage_number
+            screen = 'select'
         elif event.type == SDL_KEYDOWN and event.key == SDLK_r:
             reset_world()
         elif event.type == SDL_KEYDOWN and event.key in (SDLK_c, SDLK_z):
@@ -150,7 +162,7 @@ def reset_world():
 
 def update_world(dt):
     global active_echo, pending_player_restore
-    global world_number, stage_number, game_complete
+    global world_number, stage_number, game_complete, screen
 
     if player is not None:
         command = player.command_for_tick()
@@ -189,9 +201,14 @@ def update_world(dt):
             following = next_stage(world_number, stage_number)
             if following is None:
                 game_complete = True
+                stage_select.show_stages(world_number)
+                screen = 'select'
             elif stage_path(*following).is_file():
                 world_number, stage_number = following
                 reset_world()
+            else:
+                stage_select.show_stages(following[0])
+                screen = 'select'
             break
 
 def render_world():
@@ -200,6 +217,10 @@ def render_world():
     clear_canvas()
     if screen == 'title':
         title_screen.draw()
+        update_canvas()
+        return
+    if screen == 'select':
+        stage_select.draw()
         update_canvas()
         return
     game_world.render(camera)
@@ -224,11 +245,12 @@ def render_world():
     update_canvas()
 
 def main():
-    global running, echo_slot_font, screen, title_screen
+    global running, echo_slot_font, screen, title_screen, stage_select
     running = True
     open_canvas(1280, 720)
     echo_slot_font = load_echo_slot_font()
     title_screen = TitleScreen()
+    stage_select = StageSelect()
     screen = 'title'
     last_frame_time = time.perf_counter()
     accumulator = 0.0
@@ -240,7 +262,7 @@ def main():
         while screen == 'game' and accumulator >= FIXED_DT:
             update_world(FIXED_DT)
             accumulator -= FIXED_DT
-        if screen == 'title':
+        if screen != 'game':
             accumulator = 0.0
         render_world()
         delay(0.01)

@@ -17,7 +17,8 @@ class StageMapTests(unittest.TestCase):
         self.assertTrue(stage.is_supported(120, 136, 36))
         self.assertTrue(stage.echo_unlocked)
         self.assertEqual(next_stage(1, 9), (2, 1))
-        self.assertIsNone(next_stage(3, 9))
+        self.assertEqual(next_stage(3, 9), (4, 1))
+        self.assertIsNone(next_stage(4, 9))
 
     def test_custom_objects_and_slopes(self):
         data = {
