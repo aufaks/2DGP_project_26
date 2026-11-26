@@ -415,7 +415,7 @@ def render_world():
             hold_action_effect = None
     if level_map is not None and player is not None:
         if level_map.echo_unlocked:
-            echo_slot_ui.draw(action_recorder, active_echo)
+            echo_slot_ui.draw(action_recorder, active_echo, world_number)
     update_canvas()
 
 def main():

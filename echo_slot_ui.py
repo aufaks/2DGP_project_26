@@ -93,13 +93,16 @@ class EchoSlotUI:
         self.key_bg.draw(x, y - 38, 28, 28)
         self.keys[self.RECORD_KEYS[index]].draw(x, y - 38, 23, 23)
 
-    def draw(self, recorder, echo):
-        self.panel.draw(154, 64, 292, 106)
+    def draw(self, recorder, echo, world_number):
+        visible_centers = self.CENTERS[:1] if world_number in (1, 2) else self.CENTERS
+        first_center, last_center = visible_centers[0], visible_centers[-1]
+        self.panel.draw((first_center + last_center) // 2, 64,
+                        last_center - first_center + 108, 106)
         if recorder.is_recording:
             self.draw_slot(0, progress=recorder.progress, recording=True)
         elif echo is not None:
             self.draw_slot(0, filled=True, progress=echo.progress)
         else:
             self.draw_slot(0, filled=recorder.has_recording)
-        self.draw_slot(1)
-        self.draw_slot(2)
+        for index in range(1, len(visible_centers)):
+            self.draw_slot(index)

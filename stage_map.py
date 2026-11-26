@@ -44,6 +44,9 @@ class StageMap:
                 if item.get('sprite'):
                     self.echo_platforms[object_id].image = load_image(
                         str((self.path.parent / item['sprite']).resolve()))
+                    if item.get('inactive_sprite'):
+                        self.echo_platforms[object_id].inactive_image = load_image(
+                            str((self.path.parent / item['inactive_sprite']).resolve()))
             else:
                 raise ValueError(f"Unknown platform type: {item.get('type')}")
         for item in data.get('objects', []):
@@ -60,22 +63,24 @@ class StageMap:
                     object_id, rect, item.get('required_plates', 1),
                     item.get('latch', False), item.get('signal_marks', 0))
             elif kind == 'PressurePlate':
-                self.pressure_plates.append(
-                    PressurePlate(
-                        object_id, item['target_id'], rect,
-                        style=item.get('style', 'standard'),
-                        requires_echo=item.get('requires_echo', False)))
+                plate = PressurePlate(
+                    object_id, item['target_id'], rect,
+                    style=item.get('style', 'standard'),
+                    requires_echo=item.get('requires_echo', False))
+                if item.get('sprites'):
+                    idle, pressed = item['sprites']
+                    plate.images = tuple(
+                        load_image(str((self.path.parent / path).resolve()))
+                        for path in (idle, pressed))
+                self.pressure_plates.append(plate)
             elif kind == 'StageExit':
                 self.stage_exits.append(StageExit(
                     object_id, rect, item.get('style', 'arch')))
             else:
                 raise ValueError(f'Unknown stage object type: {kind}')
-            if item.get('sprite'):
+            if kind == 'StageExit' and item.get('sprite'):
                 image = load_image(str((self.path.parent / item['sprite']).resolve()))
-                if kind == 'PressurePlate':
-                    self.pressure_plates[-1].stage_image = image
-                elif kind == 'StageExit':
-                    self.stage_exits[-1].stage_image = image
+                self.stage_exits[-1].stage_image = image
             if kind == 'StageExit' and item.get('glow_sprite'):
                 self.stage_exits[-1].glow_image = load_image(
                     str((self.path.parent / item['glow_sprite']).resolve()))
@@ -96,7 +101,8 @@ class StageMap:
             for door in self.doors.values():
                 door.images = (assets['door_closed'], assets['door_open'])
             for plate in self.pressure_plates:
-                plate.images = (assets['plate_idle'], assets['plate_pressed'])
+                if plate.images is None:
+                    plate.images = (assets['plate_idle'], assets['plate_pressed'])
             for stage_exit in self.stage_exits:
                 stage_exit.image = assets['stage_exit']
 

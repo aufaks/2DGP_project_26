@@ -273,6 +273,7 @@ class PressurePlate:
         self.signal_marks = 0
         self.style = style
         self.requires_echo = requires_echo
+        self.images = None
 
     def update(self, actors):
         left, _, right, top = self.rect
@@ -286,42 +287,16 @@ class PressurePlate:
         )
 
     def draw(self, camera=None):
-        if getattr(self, 'stage_image', None) is not None:
-            image = self.stage_image
-            image.opacify(1.0 if self.is_pressed else .72)
-            try:
-                _draw_sprite(image, self.rect, camera,
-                             self.rect[2] - self.rect[0] + 28, 48, 3)
-            finally:
-                image.opacify(1.0)
-            return
-        if self.style == 'echo_pad':
-            left, bottom, right, top = _screen_rect(self.rect, camera)
-            width, height = right - left, top - bottom
-            if self.is_pressed:
-                main_color = (236, 190, 255)
-                glow_alpha = 120
+        if self.images is not None:
+            idle, pressed = self.images
+            sprite = pressed if self.is_pressed else idle
+            width = self.rect[2] - self.rect[0] + 20
+            if self.style == 'echo_pad':
+                _draw_sprite(sprite, self.rect, camera,
+                             width, width * sprite.h / sprite.w, -21)
             else:
-                main_color = (172, 99, 204)
-                glow_alpha = 58
-            SDL_SetRenderDrawBlendMode(pico2d_core.renderer, SDL_BLENDMODE_BLEND)
-            draw_rectangle(left - 5, bottom - 5, right + 5, top + 6,
-                           187, 111, 231, glow_alpha, filled=True)
-            SDL_SetRenderDrawBlendMode(pico2d_core.renderer, 0)
-            draw_rectangle(left, bottom - height * .20, right, top,
-                           37, 43, 79, filled=True)
-            draw_rectangle(left + 4, bottom, right - 4, top - 2,
-                           *main_color, filled=True)
-            for x in (left + 11, right - 11):
-                draw_rectangle(x - 2, bottom + 1, x + 2, top - 2,
-                               248, 224, 255, filled=True)
-            draw_line(left + 19, bottom + 2, right - 19, bottom + 2,
-                      247, 213, 255)
-            return
-        if getattr(self, 'images', None) is not None:
-            sprite = self.images[1 if self.is_pressed else 0]
-            _draw_sprite(sprite, self.rect, camera,
-                         self.rect[2] - self.rect[0] + 20, 30, -10)
+                _draw_sprite(sprite, self.rect, camera,
+                             width, 30 * sprite.h / idle.h, -10)
             left, bottom, right, _ = _screen_rect(self.rect, camera)
             _draw_signal_marks(left, bottom + 2, right, 4, self.signal_marks)
             return
@@ -352,6 +327,11 @@ class EchoPlatform:
         self.animation_time += max(0.0, dt)
 
     def draw(self, camera=None):
+        if getattr(self, 'inactive_image', None) is not None:
+            image = self.image if self.active else self.inactive_image
+            _draw_sprite(image, self.rect, camera,
+                         self.rect[2] - self.rect[0] + 12, 96, -17)
+            return
         if getattr(self, 'image', None) is not None:
             self.image.opacify(.95 if self.active else .17)
             try:

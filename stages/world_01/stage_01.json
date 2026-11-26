@@ -18,7 +18,8 @@
       "id": "echo_lift",
       "type": "EchoPlatform",
       "rect": [884, 272, 1019, 314],
-      "sprite": "../../sprite/stage11_art_2.png"
+      "sprite": "../../sprite/stage11_art_2.png",
+      "inactive_sprite": "../../sprite/stage11_platform_inactive.png"
     }
   ],
   "objects": [
@@ -28,7 +29,10 @@
       "target_id": "echo_lift",
       "rect": [590, 140, 694, 149],
       "style": "echo_pad",
-      "sprite": "../../sprite/stage11_art_3.png",
+      "sprites": [
+        "../../sprite/stage11_plate_idle.png",
+        "../../sprite/stage11_plate_pressed.png"
+      ],
       "requires_echo": false
     },
     {
