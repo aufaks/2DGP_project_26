@@ -22,6 +22,7 @@ class EchoCharacter(MainCharacter):
         fixed_dt=1 / 60,
         palette_index=0,
         recording=False,
+        preview=False,
     ):
         if fixed_dt <= 0:
             raise ValueError('Fixed timestep must be positive.')
@@ -48,6 +49,7 @@ class EchoCharacter(MainCharacter):
         self.finished = not self.frames and not recording
         self.fixed_dt = float(fixed_dt)
         self.palette_index = palette_index
+        self.preview = preview
 
     def draw(self, camera=None):
         image = (self.run_image if self.state == 'RUN' else
@@ -58,6 +60,11 @@ class EchoCharacter(MainCharacter):
 
         try:
             SDL_SetTextureColorMod(texture, *color)
+            if self.preview:
+                SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND)
+                SDL_SetTextureAlphaMod(texture, 110)
+                super().draw(camera)
+                return
             SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_ADD)
             SDL_SetTextureAlphaMod(texture, 72)
             self.DRAW_SIZE = original_size * 1.10

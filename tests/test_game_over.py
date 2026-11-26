@@ -57,7 +57,7 @@ class GameOverTests(unittest.TestCase):
                 patch.object(main, 'reset_world') as reset_world:
             main.update_world(0.02)
 
-            reset_world.assert_called_once_with()
+            reset_world.assert_called_once_with(keep_recording=True)
             self.assertEqual(main.screen, 'game')
             self.assertEqual(main.game_over_elapsed, 0.0)
 

@@ -35,6 +35,7 @@ HOLD_DURATION_SECONDS = 2.0
 action_recorder = ActionRecorder(fixed_dt=FIXED_DT)
 active_echo = None
 recording_echo = None
+echo_start_preview = None
 saved_player_position = None
 saved_echo_position = None
 hotkey_keys_down = set()
@@ -99,12 +100,16 @@ def stop_recording():
             player._jump_pressed = False
         game_world.remove_object(recording_echo)
         recording_echo = None
+        add_echo_start_preview()
     saved_echo_position = None
 
 
 def start_recording():
-    global recording_echo, saved_echo_position
+    global recording_echo, saved_echo_position, echo_start_preview
 
+    if echo_start_preview is not None:
+        game_world.remove_object(echo_start_preview)
+        echo_start_preview = None
     action_recorder.start(player)
     saved_echo_position = None
     recording_echo = EchoCharacter(
@@ -121,6 +126,17 @@ def start_recording():
     player._pending_command = None
     player._jump_pressed = False
     game_world.add_object(recording_echo, 3)
+
+
+def add_echo_start_preview():
+    global echo_start_preview
+
+    if player is not None and action_recorder.has_recording:
+        echo_start_preview = EchoCharacter(
+            action_recorder.start_pose, (), level_map, player.sprite_images,
+            preview=True,
+        )
+        game_world.add_object(echo_start_preview, 2)
 
 
 def pause_game():
@@ -241,8 +257,9 @@ def handle_events():
 
 
 
-def reset_world():
+def reset_world(*, keep_recording=False):
     global player, level_map, stage_background, active_echo, recording_echo
+    global echo_start_preview
     global saved_player_position, saved_echo_position, hold_action_effect
     global game_over_elapsed
 
@@ -256,7 +273,9 @@ def reset_world():
     game_world.add_object(stage_background, 0)
     game_world.add_object(level_map, 1)
 
-    action_recorder.reset()
+    if not keep_recording:
+        action_recorder.reset()
+    echo_start_preview = None
     active_echo = None
     recording_echo = None
     saved_player_position = None
@@ -273,6 +292,7 @@ def reset_world():
         collision_map=level_map,
     )
     game_world.add_object(player, 3)
+    add_echo_start_preview()
 
 
 def update_world(dt):
@@ -302,7 +322,7 @@ def update_world(dt):
         game_over_elapsed += dt
         if game_over_elapsed >= GAME_OVER_DURATION:
             game_over_elapsed = 0.0
-            reset_world()
+            reset_world(keep_recording=True)
             screen = 'game'
         return
     if screen != 'game':
