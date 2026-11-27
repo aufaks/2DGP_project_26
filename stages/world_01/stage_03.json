@@ -1,0 +1,149 @@
+{
+  "size": [
+    1280,
+    720
+  ],
+  "background": "../../sprite/stage_01_refined_background.png",
+  "player_spawn": [
+    82,
+    103
+  ],
+  "character_scale": 0.8785,
+  "collision_rects": [
+    [
+      0,
+      0,
+      597,
+      103
+    ],
+    [
+      1135,
+      516,
+      1280,
+      575
+    ]
+  ],
+  "images": [
+    {
+      "path": "../../sprite/stage11_art_0.png",
+      "rect": [
+        0,
+        -12,
+        597,
+        142
+      ]
+    },
+    {
+      "path": "../../sprite/stage11_art_0.png",
+      "rect": [
+        1135,
+        492,
+        1280,
+        603
+      ]
+    }
+  ],
+  "platforms": [
+    {
+      "id": "right_lower_platform",
+      "type": "EchoPlatform",
+      "rect": [
+        945,
+        258,
+        1080,
+        285
+      ],
+      "sprite": "../../sprite/stage11_art_2.png",
+      "inactive_sprite": "../../sprite/stage11_platform_inactive.png"
+    },
+    {
+      "id": "right_upper_platform",
+      "type": "EchoPlatform",
+      "rect": [
+        945,
+        458,
+        1080,
+        485
+      ],
+      "sprite": "../../sprite/stage11_art_2.png",
+      "inactive_sprite": "../../sprite/stage11_platform_inactive.png"
+    },
+    {
+      "id": "left_lower_platform",
+      "type": "EchoPlatform",
+      "rect": [
+        683,
+        158,
+        818,
+        185
+      ],
+      "sprite": "../../sprite/stage11_art_2.png",
+      "inactive_sprite": "../../sprite/stage11_platform_inactive.png"
+    },
+    {
+      "id": "left_upper_platform",
+      "type": "EchoPlatform",
+      "rect": [
+        683,
+        358,
+        818,
+        385
+      ],
+      "sprite": "../../sprite/stage11_art_2.png",
+      "inactive_sprite": "../../sprite/stage11_platform_inactive.png"
+    }
+  ],
+  "objects": [
+    {
+      "id": "plate_1",
+      "type": "PressurePlate",
+      "target_id": "right_lower_platform",
+      "extra_target_ids": [
+        "right_upper_platform"
+      ],
+      "rect": [
+        408,
+        96,
+        504,
+        103
+      ],
+      "style": "echo_pad",
+      "sprites": [
+        "../../sprite/stage11_plate_idle.png",
+        "../../sprite/stage11_plate_pressed.png"
+      ]
+    },
+    {
+      "id": "plate_2",
+      "type": "PressurePlate",
+      "target_id": "left_lower_platform",
+      "extra_target_ids": [
+        "left_upper_platform"
+      ],
+      "rect": [
+        251,
+        96,
+        347,
+        103
+      ],
+      "style": "echo_pad",
+      "sprites": [
+        "../../sprite/stage11_plate_idle.png",
+        "../../sprite/stage11_plate_pressed.png"
+      ]
+    },
+    {
+      "id": "sunlit_way",
+      "type": "StageExit",
+      "rect": [
+        1254,
+        575,
+        1279,
+        720
+      ],
+      "style": "particles",
+      "sprite": "../../sprite/goal_particle.png",
+      "glow_sprite": "../../sprite/stage11_side_light.png"
+    }
+  ]
+}

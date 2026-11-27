@@ -33,9 +33,11 @@ class StageSelectTests(unittest.TestCase):
 
     def test_only_existing_stages_can_start(self):
         self.menu.show_stages(1)
-        self.assertIsNone(self.menu.handle_event(self.click(180, 450)))
-        self.assertEqual(self.menu.stage, 2)
+        self.assertIsNone(self.menu.handle_event(self.click(80, 340)))
+        self.assertEqual(self.menu.stage, 4)
         self.assertIsNone(self.menu.handle_event(self.key(SDLK_RETURN)))
+        self.assertEqual(self.menu.handle_event(self.click(180, 450)), ('play', 1, 2))
+        self.assertEqual(self.menu.handle_event(self.click(295, 450)), ('play', 1, 3))
         self.assertEqual(self.menu.handle_event(self.click(80, 450)), ('play', 1, 1))
 
     def test_main_enters_selection_before_loading_a_stage(self):
@@ -58,7 +60,7 @@ class StageSelectTests(unittest.TestCase):
                     patch.object(main, 'reset_world') as reset:
                 main.handle_events()
                 self.assertEqual((main.screen, main.world_number, main.stage_number),
-                                 ('game', 1, 1))
+                                 ('stage_entry', 1, 1))
                 reset.assert_called_once_with()
         finally:
             main.screen, main.title_screen, main.stage_select = previous

@@ -1,7 +1,7 @@
 {
   "size": [1280, 720],
   "background": "../../sprite/stage_01_refined_background.png",
-  "player_spawn": [120, 149],
+  "player_spawn": [95, 149],
   "collision_rects": [
     [0, 0, 240, 149],
     [473, 0, 807, 149],
@@ -27,7 +27,7 @@
       "id": "memory_plate",
       "type": "PressurePlate",
       "target_id": "echo_lift",
-      "rect": [590, 140, 694, 149],
+      "rect": [592, 142, 688, 149],
       "style": "echo_pad",
       "sprites": [
         "../../sprite/stage11_plate_idle.png",
@@ -38,7 +38,7 @@
     {
       "id": "sunlit_way",
       "type": "StageExit",
-      "rect": [1238, 461, 1278, 586],
+      "rect": [1254, 461, 1279, 635],
       "style": "particles",
       "sprite": "../../sprite/goal_particle.png",
       "glow_sprite": "../../sprite/stage11_side_light.png"

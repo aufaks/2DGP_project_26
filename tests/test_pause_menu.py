@@ -74,7 +74,7 @@ class PauseMenuTests(unittest.TestCase):
     def test_pause_actions_continue_restart_or_open_title(self):
         for action, expected_screen in (
             ('continue', 'game'),
-            ('restart', 'game'),
+            ('restart', 'stage_entry'),
             ('title', 'title'),
         ):
             menu = SimpleNamespace(handle_event=Mock(return_value=action))

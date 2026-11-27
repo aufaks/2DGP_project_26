@@ -1,6 +1,6 @@
 import os
 
-from pico2d import load_image
+from asset_cache import load_image
 
 
 class StageBackground:

@@ -265,9 +265,9 @@ class Door:
 
 class PressurePlate:
     def __init__(self, object_id, target_id, rect, style='standard',
-                 requires_echo=False):
+                 requires_echo=False, extra_target_ids=()):
         self.object_id = object_id
-        self.target_id = target_id
+        self.target_ids = (target_id, *extra_target_ids)
         self.rect = rect
         self.is_pressed = False
         self.signal_marks = 0
@@ -329,8 +329,9 @@ class EchoPlatform:
     def draw(self, camera=None):
         if getattr(self, 'inactive_image', None) is not None:
             image = self.image if self.active else self.inactive_image
+            bottom_offset = self.rect[3] - self.rect[1] - 59
             _draw_sprite(image, self.rect, camera,
-                         self.rect[2] - self.rect[0] + 12, 96, -17)
+                         self.rect[2] - self.rect[0] + 12, 96, bottom_offset)
             return
         if getattr(self, 'image', None) is not None:
             self.image.opacify(.95 if self.active else .17)

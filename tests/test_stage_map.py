@@ -13,7 +13,7 @@ class StageMapTests(unittest.TestCase):
         with patch('stage_map.load_image'):
             stage = StageMap(stage_path(1, 1))
         self.assertEqual((stage.pixel_width, stage.pixel_height), (1280, 720))
-        self.assertEqual(stage.player_spawn, (120, 149))
+        self.assertEqual(stage.player_spawn, (95, 149))
         self.assertTrue(stage.is_supported(120, 149, 36))
         self.assertTrue(stage.echo_unlocked)
         self.assertEqual(next_stage(1, 9), (2, 1))
@@ -62,6 +62,25 @@ class StageMapTests(unittest.TestCase):
 
         self.assertEqual((x, y), (120, -9))
         self.assertFalse(grounded)
+
+    def test_actor_can_leave_top_and_bottom_edges_but_not_side_edges(self):
+        stage = StageMap.__new__(StageMap)
+        stage.pixel_width = 1280
+        stage.pixel_height = 720
+        stage.collision_rects = []
+        stage.platform_rects = []
+        stage.doors = {}
+        stage.slope_tiles = []
+
+        _, above_map, _, _ = stage.move_actor(120, 690, 36, 60, 0, 40)
+        _, below_map, _, _ = stage.move_actor(120, 5, 36, 60, 0, -10)
+        left_edge, _, _, _ = stage.move_actor(20, 300, 36, 60, -30, 0)
+        right_edge, _, _, _ = stage.move_actor(1260, 300, 36, 60, 30, 0)
+
+        self.assertEqual(above_map, 730)
+        self.assertEqual(below_map, -5)
+        self.assertEqual(left_edge, 18)
+        self.assertEqual(right_edge, 1262)
 
 
 if __name__ == '__main__':

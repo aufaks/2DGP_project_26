@@ -1,10 +1,11 @@
 from pathlib import Path
 import json
 
-from pico2d import draw_circle, draw_line, draw_rectangle, load_image
+from pico2d import draw_circle, draw_line, draw_rectangle
 from pico2d import pico2d as pico2d_core
 from sdl2 import SDL_BLENDMODE_BLEND, SDL_SetRenderDrawBlendMode
 
+from asset_cache import load_image
 from game_objects import Door, EchoPlatform, PressurePlate, StageExit
 
 
@@ -18,6 +19,7 @@ class StageMap:
         self.background_path = (self.path.parent / data['background']).resolve()
         self.pixel_width, self.pixel_height = data['size']
         self.player_spawn = tuple(data['player_spawn'])
+        self.character_scale = data.get('character_scale', 1.0)
         self.collision_rects = [tuple(rect) for rect in data.get('collision_rects', [])]
         self.platform_rects = []
         self.slope_tiles = [tuple(slope) for slope in data.get('slopes', [])]
@@ -66,7 +68,8 @@ class StageMap:
                 plate = PressurePlate(
                     object_id, item['target_id'], rect,
                     style=item.get('style', 'standard'),
-                    requires_echo=item.get('requires_echo', False))
+                    requires_echo=item.get('requires_echo', False),
+                    extra_target_ids=item.get('extra_target_ids', ()))
                 if item.get('sprites'):
                     idle, pressed = item['sprites']
                     plate.images = tuple(
@@ -85,11 +88,11 @@ class StageMap:
                 self.stage_exits[-1].glow_image = load_image(
                     str((self.path.parent / item['glow_sprite']).resolve()))
         for plate in self.pressure_plates:
-            if plate.target_id not in self.doors and \
-                    plate.target_id not in self.echo_platforms:
-                raise ValueError(f'Unknown pressure plate target: {plate.target_id}')
-            if plate.target_id in self.doors:
-                plate.signal_marks = self.doors[plate.target_id].signal_marks
+            for target_id in plate.target_ids:
+                if target_id in self.doors:
+                    plate.signal_marks = self.doors[target_id].signal_marks
+                elif target_id not in self.echo_platforms:
+                    raise ValueError(f'Unknown pressure plate target: {target_id}')
         self.echo_unlocked = True
         self.interact_prompt = None
         if data.get('objects'):
@@ -117,7 +120,7 @@ class StageMap:
         for plate in self.pressure_plates:
             plate.update(actors)
         for object_id, platform in self.echo_platforms.items():
-            activated = any(plate.is_pressed and plate.target_id == object_id
+            activated = any(plate.is_pressed and object_id in plate.target_ids
                             for plate in self.pressure_plates)
             platform.update(activated, dt)
         self.platform_rects = [
@@ -125,7 +128,7 @@ class StageMap:
             if platform.active
         ]
         for object_id, door in self.doors.items():
-            pressed = sum(plate.is_pressed and plate.target_id == object_id
+            pressed = sum(plate.is_pressed and object_id in plate.target_ids
                           for plate in self.pressure_plates)
             door.update(pressed, actors)
 
@@ -354,21 +357,10 @@ class StageMap:
                         next_y + height > slope_surface:
                     next_y = min(next_y, slope_surface - height)
                     hit_ceiling = True
-            max_y = self.pixel_height - height
-            if max_y < 0:
-                y = self.pixel_height / 2 - height / 2
-                hit_ceiling = dy > 0
-            else:
-                if next_y > max_y:
-                    next_y = max_y
-                    hit_ceiling = dy > 0
-                y = next_y
+            y = next_y
 
         max_x = self.pixel_width - half_width
         x = self.pixel_width / 2 if max_x < half_width else \
             min(max(x, half_width), max_x)
-        max_y = self.pixel_height - height
-        y = self.pixel_height / 2 - height / 2 if max_y < 0 else \
-            min(y, max_y)
         grounded = landed or self.is_supported(x, y, width)
         return x, y, grounded, hit_ceiling

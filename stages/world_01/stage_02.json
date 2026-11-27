@@ -1,0 +1,118 @@
+{
+  "size": [
+    1280,
+    720
+  ],
+  "background": "../../sprite/stage_01_refined_background.png",
+  "player_spawn": [
+    77,
+    158
+  ],
+  "collision_rects": [
+    [
+      0,
+      0,
+      679,
+      158
+    ],
+    [
+      1135,
+      412,
+      1280,
+      471
+    ]
+  ],
+  "images": [
+    {
+      "path": "../../sprite/stage11_art_0.png",
+      "rect": [
+        0,
+        -12,
+        679,
+        213
+      ]
+    },
+    {
+      "path": "../../sprite/stage11_art_0.png",
+      "rect": [
+        1135,
+        388,
+        1280,
+        499
+      ]
+    }
+  ],
+  "platforms": [
+    {
+      "id": "right_lower_platform",
+      "type": "EchoPlatform",
+      "rect": [
+        940,
+        346,
+        1075,
+        373
+      ],
+      "sprite": "../../sprite/stage11_art_2.png",
+      "inactive_sprite": "../../sprite/stage11_platform_inactive.png"
+    },
+    {
+      "id": "left_lower_platform",
+      "type": "EchoPlatform",
+      "rect": [
+        753,
+        235,
+        888,
+        262
+      ],
+      "sprite": "../../sprite/stage11_art_2.png",
+      "inactive_sprite": "../../sprite/stage11_platform_inactive.png"
+    }
+  ],
+  "objects": [
+    {
+      "id": "plate_1",
+      "type": "PressurePlate",
+      "target_id": "right_lower_platform",
+      "rect": [
+        464,
+        151,
+        560,
+        158
+      ],
+      "style": "echo_pad",
+      "sprites": [
+        "../../sprite/stage11_plate_idle.png",
+        "../../sprite/stage11_plate_pressed.png"
+      ]
+    },
+    {
+      "id": "plate_2",
+      "type": "PressurePlate",
+      "target_id": "left_lower_platform",
+      "rect": [
+        251,
+        151,
+        347,
+        158
+      ],
+      "style": "echo_pad",
+      "sprites": [
+        "../../sprite/stage11_plate_idle.png",
+        "../../sprite/stage11_plate_pressed.png"
+      ]
+    },
+    {
+      "id": "sunlit_way",
+      "type": "StageExit",
+      "rect": [
+        1254,
+        471,
+        1279,
+        616
+      ],
+      "style": "particles",
+      "sprite": "../../sprite/goal_particle.png",
+      "glow_sprite": "../../sprite/stage11_side_light.png"
+    }
+  ]
+}

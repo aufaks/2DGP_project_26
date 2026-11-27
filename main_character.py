@@ -2,6 +2,7 @@ import os
 
 from pico2d import *
 
+from asset_cache import load_image
 from game_commands import ActorPose, PlayerCommand
 
 
@@ -65,6 +66,7 @@ class MainCharacter:
         self.y = float(y)
         self.ground_y = float(ground_y)
         self.collision_map = collision_map
+        self.DRAW_SIZE *= getattr(collision_map, 'character_scale', 1.0)
         self.velocity_y = 0.0
         self.grounded = (
             collision_map.is_supported(
@@ -294,6 +296,21 @@ class MainCharacter:
         self.x += self.MOVE_SPEED * dt
         self.animation_time += dt
         self.run_animation_time += dt
+
+    def walk_in(self, dt, target_x):
+        self.frozen = False
+        self.facing_left = False
+        self.is_moving = True
+        self._set_state('RUN')
+        self.x = min(self.x + self.MOVE_SPEED * dt, target_x)
+        self.animation_time += dt
+        self.run_animation_time += dt
+        if self.x < target_x:
+            return False
+
+        self.is_moving = False
+        self._set_state('IDLE' if self.grounded else 'FALL')
+        return True
 
     def _set_state(self, state):
         if self.state != state:
