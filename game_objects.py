@@ -211,8 +211,10 @@ class Door:
     def draw(self, camera=None):
         if getattr(self, 'images', None) is not None:
             sprite = self.images[1 if self.is_open else 0]
-            _draw_sprite(sprite, self.rect, camera, 88, 160)
             left, bottom, right, top = _screen_rect(self.rect, camera)
+            height = self.rect[3] - self.rect[1]
+            width = height * sprite.w / sprite.h
+            _draw_sprite(sprite, self.rect, camera, width, height)
             _draw_signal_marks(left, top - 4, right, 3, self.signal_marks)
             if not self.is_open and self.required_plates > 1:
                 spacing = (right - left) / (self.required_plates + 1)
@@ -291,7 +293,12 @@ class PressurePlate:
             idle, pressed = self.images
             sprite = pressed if self.is_pressed else idle
             width = self.rect[2] - self.rect[0] + 20
-            if self.style == 'echo_pad':
+            if self.style == 'inset':
+                width = self.rect[2] - self.rect[0]
+                bottom_offset = self.rect[3] - self.rect[1] - 6
+                _draw_sprite(sprite, self.rect, camera,
+                             width, width * sprite.h / sprite.w, bottom_offset)
+            elif self.style == 'echo_pad':
                 _draw_sprite(sprite, self.rect, camera,
                              width, width * sprite.h / sprite.w, -21)
             else:
@@ -327,19 +334,20 @@ class EchoPlatform:
         self.animation_time += max(0.0, dt)
 
     def draw(self, camera=None):
-        if getattr(self, 'inactive_image', None) is not None:
-            image = self.image if self.active else self.inactive_image
-            bottom_offset = self.rect[3] - self.rect[1] - 59
-            _draw_sprite(image, self.rect, camera,
-                         self.rect[2] - self.rect[0] + 12, 96, bottom_offset)
-            return
         if getattr(self, 'image', None) is not None:
-            self.image.opacify(.95 if self.active else .17)
+            inactive_image = getattr(self, 'inactive_image', None)
+            image = inactive_image if not self.active and inactive_image else self.image
+            width = self.rect[2] - self.rect[0]
+            height = width * image.h / image.w
+            # The walking surface sits 60% up from the bottom of the artwork.
+            bottom_offset = self.rect[3] - self.rect[1] - height * .60
+            if inactive_image is None:
+                image.opacify(.95 if self.active else .17)
             try:
-                _draw_sprite(self.image, self.rect, camera,
-                             self.rect[2] - self.rect[0] + 12, 96, -17)
+                _draw_sprite(image, self.rect, camera, width, height, bottom_offset)
             finally:
-                self.image.opacify(1.0)
+                if inactive_image is None:
+                    image.opacify(1.0)
             return
         left, bottom, right, top = _screen_rect(self.rect, camera)
         scale = camera.zoom if camera is not None else 1.0

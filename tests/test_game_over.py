@@ -58,7 +58,7 @@ class GameOverTests(unittest.TestCase):
             main.update_world(0.02)
 
             reset_world.assert_called_once_with(keep_recording=True)
-            self.assertEqual(main.screen, 'stage_entry')
+            self.assertEqual(main.screen, 'game')
             self.assertEqual(main.game_over_elapsed, 0.0)
 
     def test_game_over_effect_is_rendered(self):

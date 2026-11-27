@@ -1,0 +1,50 @@
+{
+  "size": [1280, 720],
+  "background": "../../sprite/stage_01_refined_background.png",
+  "player_spawn": [89, 609],
+  "character_scale": 1.153,
+  "collision_rects": [
+    [0, 527, 268, 609],
+    [0, 272, 586, 353],
+    [720, 0, 1280, 149],
+    [966, 323, 1280, 368]
+  ],
+  "images": [
+    {"path": "../../sprite/world01_door_lintel.png", "rect": [198.86, 524, 292.14, 605]},
+    {"path": "../../sprite/world01_door_lintel.png", "rect": [963.16, 320, 1013.84, 364]},
+    {"path": "../../sprite/stage11_art_0.png", "rect": [0, 542.0, 268, 631.33]},
+    {"path": "../../sprite/stage11_art_0.png", "rect": [0, 279.5, 294, 377.5]},
+    {"path": "../../sprite/stage11_art_0.png", "rect": [292, 279.5, 586, 377.5]},
+    {"path": "../../sprite/stage11_art_0.png", "rect": [720, 78.75, 1001, 172.42]},
+    {"path": "../../sprite/stage11_art_0.png", "rect": [999, 78.75, 1280, 172.42]},
+    {"path": "../../sprite/stage11_art_0.png", "rect": [966, 289.5, 1280, 394.17]}
+  ],
+  "objects": [
+    {"id": "return_door", "type": "Door", "rect": [233, 353, 258, 527]},
+    {"id": "exit_door", "type": "Door", "rect": [976, 149, 1001, 323]},
+    {
+      "id": "plate_1",
+      "type": "PressurePlate",
+      "target_id": "return_door",
+      "rect": [1159, 361, 1255, 368],
+      "style": "inset",
+      "sprites": ["../../sprite/world01_inset_plate_idle.png", "../../sprite/world01_inset_plate_pressed.png"]
+    },
+    {
+      "id": "plate_2",
+      "type": "PressurePlate",
+      "target_id": "exit_door",
+      "rect": [28, 346, 124, 353],
+      "style": "inset",
+      "sprites": ["../../sprite/world01_inset_plate_idle.png", "../../sprite/world01_inset_plate_pressed.png"]
+    },
+    {
+      "id": "sunlit_way",
+      "type": "StageExit",
+      "rect": [1255, 149, 1280, 323],
+      "style": "particles",
+      "sprite": "../../sprite/goal_particle.png",
+      "glow_sprite": "../../sprite/stage11_side_light.png"
+    }
+  ]
+}

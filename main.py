@@ -200,7 +200,7 @@ def handle_events():
                 elif action[0] == 'play':
                     world_number, stage_number = action[1:]
                     game_complete = False
-                    reset_world()
+                    reset_world(play_entry=True)
                     screen = 'stage_entry'
         elif screen == 'pause':
             action = pause_menu.handle_event(event)
@@ -208,7 +208,7 @@ def handle_events():
                 screen = 'game'
             elif action == 'restart':
                 reset_world()
-                screen = 'stage_entry'
+                screen = 'game'
             elif action == 'title':
                 screen = 'title'
         elif (
@@ -223,7 +223,7 @@ def handle_events():
             screen = 'select'
         elif event.type == SDL_KEYDOWN and event.key == SDLK_r:
             reset_world()
-            screen = 'stage_entry'
+            screen = 'game'
         elif event.type == SDL_KEYDOWN and event.key in (SDLK_c, SDLK_z):
             hold_key_tracker.key_down(event.key, time.perf_counter())
         elif event.type == SDL_KEYUP and event.key in (SDLK_c, SDLK_z):
@@ -259,7 +259,7 @@ def handle_events():
 
 
 
-def reset_world(*, keep_recording=False):
+def reset_world(*, keep_recording=False, play_entry=False):
     global player, level_map, stage_background, active_echo, recording_echo
     global echo_start_preview
     global saved_player_position, saved_echo_position, hold_action_effect
@@ -301,8 +301,9 @@ def reset_world(*, keep_recording=False):
         level_map.pixel_width,
         level_map.pixel_height,
     )
-    view_left = camera.x - camera.width / (2 * camera.zoom)
-    player.x = view_left - player.DRAW_SIZE / 2
+    if play_entry:
+        view_left = camera.x - camera.width / (2 * camera.zoom)
+        player.x = view_left - player.DRAW_SIZE / 2
     stage_entry_target_x = spawn_x
     game_world.add_object(player, 3)
     add_echo_start_preview()
@@ -330,7 +331,7 @@ def update_world(dt):
                 screen = 'select'
             elif stage_path(*following).is_file():
                 world_number, stage_number = following
-                reset_world()
+                reset_world(play_entry=True)
                 screen = 'stage_entry'
             else:
                 stage_select.show_stages(following[0])
@@ -341,7 +342,7 @@ def update_world(dt):
         if game_over_elapsed >= GAME_OVER_DURATION:
             game_over_elapsed = 0.0
             reset_world(keep_recording=True)
-            screen = 'stage_entry'
+            screen = 'game'
         return
     if screen != 'game':
         return

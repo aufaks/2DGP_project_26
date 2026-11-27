@@ -9,9 +9,9 @@
   ],
   "slopes": [],
   "images": [
-    {"path": "../../sprite/stage11_art_0.png", "rect": [0, -60, 240, 220]},
-    {"path": "../../sprite/stage11_art_0.png", "rect": [473, -60, 807, 220]},
-    {"path": "../../sprite/stage11_pillar.png", "rect": [1035, -25, 1347, 495]}
+    {"path": "../../sprite/stage11_art_0.png", "rect": [0, 89.0, 240, 169.0]},
+    {"path": "../../sprite/stage11_art_0.png", "rect": [473, 65.5, 807, 176.83]},
+    {"path": "../../sprite/stage11_pillar.png", "rect": [1035, -413.81, 1347, 522.19]}
   ],
   "platforms": [
     {
@@ -28,10 +28,10 @@
       "type": "PressurePlate",
       "target_id": "echo_lift",
       "rect": [592, 142, 688, 149],
-      "style": "echo_pad",
+      "style": "inset",
       "sprites": [
-        "../../sprite/stage11_plate_idle.png",
-        "../../sprite/stage11_plate_pressed.png"
+        "../../sprite/world01_inset_plate_idle.png",
+        "../../sprite/world01_inset_plate_pressed.png"
       ],
       "requires_echo": false
     },

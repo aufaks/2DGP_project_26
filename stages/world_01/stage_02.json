@@ -23,24 +23,10 @@
     ]
   ],
   "images": [
-    {
-      "path": "../../sprite/stage11_art_0.png",
-      "rect": [
-        0,
-        -12,
-        679,
-        213
-      ]
-    },
-    {
-      "path": "../../sprite/stage11_art_0.png",
-      "rect": [
-        1135,
-        388,
-        1280,
-        499
-      ]
-    }
+    {"path": "../../sprite/stage11_art_0.png", "rect": [0, 102.75, 221, 176.42]},
+    {"path": "../../sprite/stage11_art_0.png", "rect": [219, 107, 423, 175]},
+    {"path": "../../sprite/stage11_art_0.png", "rect": [421, 93.5, 679, 179.5]},
+    {"path": "../../sprite/stage11_art_0.png", "rect": [1135, 434.75, 1280, 483.08]}
   ],
   "platforms": [
     {
@@ -79,10 +65,10 @@
         560,
         158
       ],
-      "style": "echo_pad",
+      "style": "inset",
       "sprites": [
-        "../../sprite/stage11_plate_idle.png",
-        "../../sprite/stage11_plate_pressed.png"
+        "../../sprite/world01_inset_plate_idle.png",
+        "../../sprite/world01_inset_plate_pressed.png"
       ]
     },
     {
@@ -95,10 +81,10 @@
         347,
         158
       ],
-      "style": "echo_pad",
+      "style": "inset",
       "sprites": [
-        "../../sprite/stage11_plate_idle.png",
-        "../../sprite/stage11_plate_pressed.png"
+        "../../sprite/world01_inset_plate_idle.png",
+        "../../sprite/world01_inset_plate_pressed.png"
       ]
     },
     {

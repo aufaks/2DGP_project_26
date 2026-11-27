@@ -1,0 +1,55 @@
+{
+  "size": [1280, 720],
+  "background": "../../sprite/stage_01_refined_background.png",
+  "player_spawn": [95, 149],
+  "collision_rects": [
+    [0, 0, 1280, 149],
+    [856, 356, 1280, 437]
+  ],
+  "images": [
+    {"path": "../../sprite/world01_door_lintel.png", "rect": [822.44, 353, 914.56, 433]},
+    {"path": "../../sprite/stage11_art_0.png", "rect": [0, 92.5, 226, 167.83]},
+    {"path": "../../sprite/stage11_art_0.png", "rect": [224, 82.25, 491, 171.25]},
+    {"path": "../../sprite/stage11_art_0.png", "rect": [489, 82.25, 756, 171.25]},
+    {"path": "../../sprite/stage11_art_0.png", "rect": [754, 82.75, 1019, 171.08]},
+    {"path": "../../sprite/stage11_art_0.png", "rect": [1017, 83.25, 1280, 170.92]},
+    {"path": "../../sprite/stage11_art_0.png", "rect": [856, 383.75, 1069, 454.75]},
+    {"path": "../../sprite/stage11_art_0.png", "rect": [1067, 383.75, 1280, 454.75]}
+  ],
+  "platforms": [
+    {
+      "id": "echo_step",
+      "type": "EchoPlatform",
+      "rect": [572, 236, 708, 279],
+      "sprite": "../../sprite/stage11_art_2.png",
+      "inactive_sprite": "../../sprite/stage11_platform_inactive.png"
+    }
+  ],
+  "objects": [
+    {"id": "exit_door", "type": "Door", "rect": [856, 149, 881, 356]},
+    {
+      "id": "plate_1",
+      "type": "PressurePlate",
+      "target_id": "echo_step",
+      "rect": [268, 142, 364, 149],
+      "style": "inset",
+      "sprites": ["../../sprite/world01_inset_plate_idle.png", "../../sprite/world01_inset_plate_pressed.png"]
+    },
+    {
+      "id": "plate_2",
+      "type": "PressurePlate",
+      "target_id": "exit_door",
+      "rect": [1159, 430, 1255, 437],
+      "style": "inset",
+      "sprites": ["../../sprite/world01_inset_plate_idle.png", "../../sprite/world01_inset_plate_pressed.png"]
+    },
+    {
+      "id": "sunlit_way",
+      "type": "StageExit",
+      "rect": [1255, 149, 1280, 356],
+      "style": "particles",
+      "sprite": "../../sprite/goal_particle.png",
+      "glow_sprite": "../../sprite/stage11_side_light.png"
+    }
+  ]
+}
